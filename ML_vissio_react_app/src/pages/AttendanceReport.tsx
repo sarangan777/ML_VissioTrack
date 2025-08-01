@@ -1,11 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { Download, Filter, AlertCircle } from 'lucide-react';
+import { Download, Filter } from 'lucide-react';
 import { format } from 'date-fns';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
 import Papa from 'papaparse';
 import BackButton from '../components/BackButton';
-import AttendanceReviewModal from '../components/AttendanceReviewModal';
 import { toast, ToastContainer } from 'react-toastify';
 import { useAuth } from '../context/AuthContext';
 import * as apiService from '../services/api';
@@ -15,15 +14,14 @@ interface AttendanceRecord {
   date: string;
   status: string;
   arrivalTime: string;
-  reviewed?: boolean;
+  subjectCode: string;
+  location: string;
 }
 
 const AttendanceReport: React.FC = () => {
   const [selectedDateRange, setSelectedDateRange] = useState<string>('current');
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [isExporting, setIsExporting] = useState(false);
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
   const [attendanceData, setAttendanceData] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
@@ -41,7 +39,9 @@ const AttendanceReport: React.FC = () => {
             id: record.id,
             date: record.date,
             status: record.status,
-            arrivalTime: record.arrivalTime || '-'
+            arrivalTime: record.arrivalTime || '-',
+            subjectCode: record.subjectCode || 'N/A',
+            location: record.location || 'N/A'
           }));
           setAttendanceData(formattedData);
         } else {
@@ -75,8 +75,10 @@ const AttendanceReport: React.FC = () => {
 
       pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
       pdf.save('attendance-report.pdf');
+      toast.success('PDF exported successfully');
     } catch (error) {
       console.error('Error generating PDF:', error);
+      toast.error('Failed to export PDF');
     } finally {
       setIsExporting(false);
     }
@@ -88,7 +90,9 @@ const AttendanceReport: React.FC = () => {
       const csvData = attendanceData.map(record => ({
         Date: format(new Date(record.date), 'MMM dd, yyyy'),
         Status: record.status,
-        'Arrival Time': record.arrivalTime
+        'Arrival Time': record.arrivalTime,
+        Subject: record.subjectCode,
+        Location: record.location
       }));
 
       const csv = Papa.unparse(csvData);
@@ -102,17 +106,21 @@ const AttendanceReport: React.FC = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      toast.success('CSV exported successfully');
     } catch (error) {
       console.error('Error generating CSV:', error);
+      toast.error('Failed to export CSV');
     } finally {
       setIsExporting(false);
     }
   };
 
-  const handleReviewRequest = (record: AttendanceRecord) => {
-    setSelectedRecord(record);
-    setIsReviewModalOpen(true);
-  };
+  const filteredData = attendanceData.filter(record => {
+    if (selectedStatus !== 'all' && record.status.toLowerCase() !== selectedStatus.toLowerCase()) {
+      return false;
+    }
+    return true;
+  });
 
   if (isLoading) {
     return (
@@ -129,17 +137,8 @@ const AttendanceReport: React.FC = () => {
       </div>
       <div className="bg-white rounded-xl shadow-sm p-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold">Attendance Report</h2>
+          <h2 className="text-xl font-semibold">My Attendance Report</h2>
           <div className="flex space-x-3">
-            <select
-              value={selectedDateRange}
-              onChange={(e) => setSelectedDateRange(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="current">Current Month</option>
-              <option value="previous">Previous Month</option>
-              <option value="custom">Custom Range</option>
-            </select>
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
@@ -171,6 +170,15 @@ const AttendanceReport: React.FC = () => {
           </div>
         </div>
 
+        <div className="mb-4">
+          <p className="text-sm text-gray-600">
+            Total Records: {filteredData.length} | 
+            Present: {filteredData.filter(r => r.status === 'Present').length} | 
+            Absent: {filteredData.filter(r => r.status === 'Absent').length} | 
+            Late: {filteredData.filter(r => r.status === 'Late').length}
+          </p>
+        </div>
+
         <div className="overflow-x-auto" id="attendance-table">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
@@ -179,69 +187,59 @@ const AttendanceReport: React.FC = () => {
                   Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Subject
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Arrival Time
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
+                  Location
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {attendanceData.map((record) => (
-                <tr key={record.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {format(new Date(record.date), 'MMM dd, yyyy')}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      record.status === 'Present'
-                        ? 'bg-green-100 text-green-800'
-                        : record.status === 'Absent'
-                        ? 'bg-red-100 text-red-800'
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {record.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {record.arrivalTime}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    {(record.status === 'Absent' || record.status === 'Late') && !record.reviewed && (
-                      <button
-                        onClick={() => handleReviewRequest(record)}
-                        className="text-blue-600 hover:text-blue-800 flex items-center"
-                      >
-                        <AlertCircle className="w-4 h-4 mr-1" />
-                        Request Review
-                      </button>
-                    )}
-                    {record.reviewed && (
-                      <span className="text-gray-500 italic">Review requested</span>
-                    )}
+              {filteredData.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500">
+                    No attendance records found
                   </td>
                 </tr>
-              ))}
+              ) : (
+                filteredData.map((record) => (
+                  <tr key={record.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {format(new Date(record.date), 'MMM dd, yyyy')}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      {record.subjectCode}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                        record.status === 'Present'
+                          ? 'bg-green-100 text-green-800'
+                          : record.status === 'Absent'
+                          ? 'bg-red-100 text-red-800'
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {record.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {record.arrivalTime}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      {record.location}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
       </div>
-
-      {selectedRecord && (
-        <AttendanceReviewModal
-          isOpen={isReviewModalOpen}
-          onClose={() => {
-            setIsReviewModalOpen(false);
-            setSelectedRecord(null);
-          }}
-          date={selectedRecord.date}
-          status={selectedRecord.status}
-          studentId={user?.id || ''}
-        />
-      )}
 
       <ToastContainer position="top-right" autoClose={3000} />
     </div>
