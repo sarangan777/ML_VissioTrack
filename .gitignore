@@ -1,0 +1,23 @@
+# React/Vite frontend
+node_modules/
+dist/
+build/
+.vite/
+*.log
+.env
+.env.*
+
+# Java backend
+target/
+*.class
+*.war
+*.jar
+
+# OS-specific junk
+.DS_Store
+Thumbs.db
+
+# IDEs/editors
+.idea/
+.vscode/
+*.iml
