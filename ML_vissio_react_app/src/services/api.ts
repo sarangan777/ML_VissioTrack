@@ -248,9 +248,11 @@ export const getAttendanceReport = async (
 ): Promise<ApiResponse<any[]>> => {
   try {
     const params = new URLSearchParams();
+    console.log('🔄 Fetching attendance report for:', { email, startDate, endDate, department });
     if (email) params.append('email', email);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
+    if (department) params.append('department', department);
 
     const response = await fetch(
       `http://localhost:8080/MlvissioTrack/api/attendance/report?${params}`,
@@ -263,7 +265,9 @@ export const getAttendanceReport = async (
       }
     );
 
+    console.log('📡 Attendance report response status:', response.status);
     const result = await response.json();
+    console.log('📡 Attendance report response data:', result);
 
     if (response.ok && result.success) {
       return {
@@ -376,6 +380,7 @@ export const getStudentAttendance = async (
   endDate?: string
 ): Promise<ApiResponse<any[]>> => {
   try {
+    console.log('🔄 Fetching student attendance for:', email);
     const params = new URLSearchParams();
     params.append('email', email);
     if (startDate) params.append('startDate', startDate);
@@ -392,7 +397,9 @@ export const getStudentAttendance = async (
       }
     );
 
+    console.log('📡 Student attendance response status:', response.status);
     const result = await response.json();
+    console.log('📡 Student attendance response data:', result);
 
     if (response.ok && result.success) {
       return {

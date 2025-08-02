@@ -31,8 +31,11 @@ const AttendanceReport: React.FC = () => {
       if (!user?.email) return;
       
       try {
+        console.log('🔄 [AttendanceReport] Fetching attendance for user:', user.email);
         setIsLoading(true);
         const response = await apiService.getStudentAttendance(user.email);
+        
+        console.log('📡 [AttendanceReport] API Response:', response);
         
         if (response.success && response.data) {
           const formattedData = response.data.map((record: any) => ({
@@ -43,6 +46,7 @@ const AttendanceReport: React.FC = () => {
             subjectCode: record.subjectCode || 'N/A',
             location: record.location || 'N/A'
           }));
+          console.log('✅ [AttendanceReport] Formatted data:', formattedData);
           setAttendanceData(formattedData);
         } else {
           console.error('Failed to load attendance data:', response.message);

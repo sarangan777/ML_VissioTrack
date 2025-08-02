@@ -127,7 +127,7 @@ public class AttendanceServlet extends HttpServlet {
         String studentEmail = request.getParameter("email");
         String startDate = request.getParameter("startDate");
         String endDate = request.getParameter("endDate");
-        System.out.println("📊 Fetching attendance for student: " + studentEmail);
+        System.out.println("📊 [AttendanceServlet] Fetching attendance for student: " + studentEmail);
         
         if (studentEmail == null) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -138,69 +138,83 @@ public class AttendanceServlet extends HttpServlet {
             return;
         }
 
-        // Get student info first to get registration number
-        ApiFuture<QuerySnapshot> userQuery = db.collection("users")
-                .whereEqualTo("email", studentEmail)
-                .get();
-        
-        List<QueryDocumentSnapshot> userDocs = userQuery.get().getDocuments();
-        if (userDocs.isEmpty()) {
-            response.setStatus(HttpServletResponse.SC_NOT_FOUND);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Student not found");
-            objectMapper.writeValue(response.getWriter(), errorResponse);
-            return;
-        }
-
-        String registrationNumber = userDocs.get(0).getString("registrationNumber");
-        System.out.println("📊 Found student with registration number: " + registrationNumber);
-        
-        // Get attendance records using registration number (as per seeded data)
-        Query attendanceQuery = db.collection("attendance")
-                .whereEqualTo("registrationNumber", registrationNumber)
-                .orderBy("date", Query.Direction.DESCENDING);
-        
-        // Add date filters if provided
-        if (startDate != null && !startDate.isEmpty()) {
-            attendanceQuery = attendanceQuery.whereGreaterThanOrEqualTo("date", startDate);
-        }
-        if (endDate != null && !endDate.isEmpty()) {
-            attendanceQuery = attendanceQuery.whereLessThanOrEqualTo("date", endDate);
-        }
-        
-        ApiFuture<QuerySnapshot> future = attendanceQuery.get();
-        List<QueryDocumentSnapshot> attendanceDocs = future.get().getDocuments();
-        List<Map<String, Object>> attendanceRecords = new ArrayList<>();
-        
-        System.out.println("📊 Found " + attendanceDocs.size() + " attendance records");
-        
-        for (QueryDocumentSnapshot doc : attendanceDocs) {
-            Map<String, Object> record = new HashMap<>();
-            record.put("id", doc.getId());
-            record.put("date", doc.getString("date"));
-            record.put("status", doc.getString("status"));
-            record.put("subjectCode", doc.getString("subjectCode"));
+        try {
+            // Get student info first to get registration number
+            ApiFuture<QuerySnapshot> userQuery = db.collection("users")
+                    .whereEqualTo("email", studentEmail)
+                    .get();
             
-            // Format arrival time from timestamp
-            Timestamp timestamp = doc.getTimestamp("timestamp");
-            if (timestamp != null) {
-                record.put("arrivalTime", formatTime(timestamp));
-            } else {
-                record.put("arrivalTime", "-");
+            List<QueryDocumentSnapshot> userDocs = userQuery.get().getDocuments();
+            if (userDocs.isEmpty()) {
+                System.out.println("❌ [AttendanceServlet] Student not found: " + studentEmail);
+                response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                Map<String, Object> errorResponse = new HashMap<>();
+                errorResponse.put("success", false);
+                errorResponse.put("message", "Student not found");
+                objectMapper.writeValue(response.getWriter(), errorResponse);
+                return;
+            }
+
+            String registrationNumber = userDocs.get(0).getString("registrationNumber");
+            System.out.println("📊 [AttendanceServlet] Found student with registration number: " + registrationNumber);
+            
+            // Get attendance records using registration number (as per seeded data)
+            Query attendanceQuery = db.collection("attendance")
+                    .whereEqualTo("registrationNumber", registrationNumber);
+            
+            // Add date filters if provided
+            if (startDate != null && !startDate.isEmpty()) {
+                attendanceQuery = attendanceQuery.whereGreaterThanOrEqualTo("date", startDate);
+            }
+            if (endDate != null && !endDate.isEmpty()) {
+                attendanceQuery = attendanceQuery.whereLessThanOrEqualTo("date", endDate);
             }
             
-            record.put("location", doc.getString("location"));
-            record.put("confidence", doc.getDouble("confidence"));
-            attendanceRecords.add(record);
+            // Order by date descending
+            attendanceQuery = attendanceQuery.orderBy("date", Query.Direction.DESCENDING);
+            
+            ApiFuture<QuerySnapshot> future = attendanceQuery.get();
+            List<QueryDocumentSnapshot> attendanceDocs = future.get().getDocuments();
+            List<Map<String, Object>> attendanceRecords = new ArrayList<>();
+            
+            System.out.println("📊 [AttendanceServlet] Found " + attendanceDocs.size() + " attendance records");
+            
+            for (QueryDocumentSnapshot doc : attendanceDocs) {
+                Map<String, Object> record = new HashMap<>();
+                record.put("id", doc.getId());
+                record.put("date", doc.getString("date"));
+                record.put("status", doc.getString("status"));
+                record.put("subjectCode", doc.getString("subjectCode"));
+                
+                // Format arrival time from timestamp
+                Timestamp timestamp = doc.getTimestamp("timestamp");
+                if (timestamp != null) {
+                    record.put("arrivalTime", formatTime(timestamp));
+                } else {
+                    record.put("arrivalTime", "-");
+                }
+                
+                record.put("location", doc.getString("location"));
+                record.put("confidence", doc.getDouble("confidence"));
+                attendanceRecords.add(record);
+            }
+            
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("success", true);
+            responseData.put("data", attendanceRecords);
+            
+            System.out.println("✅ [AttendanceServlet] Returning " + attendanceRecords.size() + " attendance records");
+            objectMapper.writeValue(response.getWriter(), responseData);
+            
+        } catch (Exception e) {
+            System.err.println("❌ [AttendanceServlet] Error in handleStudentAttendance: " + e.getMessage());
+            e.printStackTrace();
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Failed to fetch attendance data: " + e.getMessage());
+            objectMapper.writeValue(response.getWriter(), errorResponse);
         }
-        
-        Map<String, Object> responseData = new HashMap<>();
-        responseData.put("success", true);
-        responseData.put("data", attendanceRecords);
-        
-        System.out.println("✅ Returning " + attendanceRecords.size() + " attendance records");
-        objectMapper.writeValue(response.getWriter(), responseData);
     }
 
     private void handleAttendanceStreak(HttpServletRequest request, HttpServletResponse response, Firestore db)
@@ -289,106 +303,117 @@ public class AttendanceServlet extends HttpServlet {
         String endDate = request.getParameter("endDate");
         String department = request.getParameter("department");
         
-        System.out.println("📊 Generating attendance report - Email: " + studentEmail + ", Department: " + department);
+        System.out.println("📊 [AttendanceServlet] Generating attendance report - Email: " + studentEmail + ", Department: " + department);
         
-        Query query = db.collection("attendance");
-        
-        // If specific student email is provided, filter by registration number
-        if (studentEmail != null && !studentEmail.isEmpty()) {
-            // Get student registration number from email
-            ApiFuture<QuerySnapshot> userQuery = db.collection("users")
-                    .whereEqualTo("email", studentEmail)
-                    .get();
+        try {
+            Query query = db.collection("attendance");
             
-            List<QueryDocumentSnapshot> userDocs = userQuery.get().getDocuments();
-            if (!userDocs.isEmpty()) {
-                String registrationNumber = userDocs.get(0).getString("registrationNumber");
-                query = query.whereEqualTo("registrationNumber", registrationNumber);
-                System.out.println("📊 Filtering by registration number: " + registrationNumber);
-            }
-        }
-        
-        // Add date filters
-        if (startDate != null && !startDate.isEmpty()) {
-            query = query.whereGreaterThanOrEqualTo("date", startDate);
-        }
-        if (endDate != null && !endDate.isEmpty()) {
-            query = query.whereLessThanOrEqualTo("date", endDate);
-        }
-        
-        ApiFuture<QuerySnapshot> future = query.orderBy("date", Query.Direction.DESCENDING).get();
-        List<QueryDocumentSnapshot> documents = future.get().getDocuments();
-        
-        List<Map<String, Object>> attendanceRecords = new ArrayList<>();
-        
-        System.out.println("📊 Processing " + documents.size() + " attendance records");
-        
-        for (QueryDocumentSnapshot doc : documents) {
-            String registrationNumber = doc.getString("registrationNumber");
-            
-            // Get student details using registration number
-            Map<String, Object> studentInfo = new HashMap<>();
-            try {
-                ApiFuture<QuerySnapshot> studentQuery = db.collection("users")
-                        .whereEqualTo("registrationNumber", registrationNumber)
+            // If specific student email is provided, filter by registration number
+            if (studentEmail != null && !studentEmail.isEmpty()) {
+                // Get student registration number from email
+                ApiFuture<QuerySnapshot> userQuery = db.collection("users")
+                        .whereEqualTo("email", studentEmail)
                         .get();
-                List<QueryDocumentSnapshot> studentDocs = studentQuery.get().getDocuments();
                 
-                if (!studentDocs.isEmpty()) {
-                    DocumentSnapshot student = studentDocs.get(0);
-                    studentInfo.put("name", student.getString("name"));
-                    studentInfo.put("email", student.getString("email"));
-                    studentInfo.put("registrationNumber", student.getString("registrationNumber"));
-                    studentInfo.put("department", student.getString("department"));
+                List<QueryDocumentSnapshot> userDocs = userQuery.get().getDocuments();
+                if (!userDocs.isEmpty()) {
+                    String registrationNumber = userDocs.get(0).getString("registrationNumber");
+                    query = query.whereEqualTo("registrationNumber", registrationNumber);
+                    System.out.println("📊 [AttendanceServlet] Filtering by registration number: " + registrationNumber);
+                }
+            }
+            
+            // Add date filters
+            if (startDate != null && !startDate.isEmpty()) {
+                query = query.whereGreaterThanOrEqualTo("date", startDate);
+            }
+            if (endDate != null && !endDate.isEmpty()) {
+                query = query.whereLessThanOrEqualTo("date", endDate);
+            }
+            
+            ApiFuture<QuerySnapshot> future = query.orderBy("date", Query.Direction.DESCENDING).get();
+            List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+            
+            List<Map<String, Object>> attendanceRecords = new ArrayList<>();
+            
+            System.out.println("📊 [AttendanceServlet] Processing " + documents.size() + " attendance records");
+            
+            for (QueryDocumentSnapshot doc : documents) {
+                String registrationNumber = doc.getString("registrationNumber");
+                
+                // Get student details using registration number
+                Map<String, Object> studentInfo = new HashMap<>();
+                try {
+                    ApiFuture<QuerySnapshot> studentQuery = db.collection("users")
+                            .whereEqualTo("registrationNumber", registrationNumber)
+                            .get();
+                    List<QueryDocumentSnapshot> studentDocs = studentQuery.get().getDocuments();
                     
-                    // Filter by department if specified
-                    if (department != null && !department.isEmpty()) {
-                        String studentDept = student.getString("department");
-                        if (!department.equals(studentDept)) {
-                            continue; // Skip this record
+                    if (!studentDocs.isEmpty()) {
+                        DocumentSnapshot student = studentDocs.get(0);
+                        studentInfo.put("name", student.getString("name"));
+                        studentInfo.put("email", student.getString("email"));
+                        studentInfo.put("registrationNumber", student.getString("registrationNumber"));
+                        studentInfo.put("department", student.getString("department"));
+                        
+                        // Filter by department if specified
+                        if (department != null && !department.isEmpty()) {
+                            String studentDept = student.getString("department");
+                            if (!department.equals(studentDept)) {
+                                continue; // Skip this record
+                            }
                         }
+                    } else {
+                        studentInfo.put("name", "Unknown Student");
+                        studentInfo.put("email", "unknown@example.com");
+                        studentInfo.put("registrationNumber", registrationNumber);
+                        studentInfo.put("department", "Unknown");
                     }
-                } else {
+                } catch (Exception e) {
+                    System.err.println("⚠️ [AttendanceServlet] Error fetching student info for " + registrationNumber + ": " + e.getMessage());
                     studentInfo.put("name", "Unknown Student");
                     studentInfo.put("email", "unknown@example.com");
                     studentInfo.put("registrationNumber", registrationNumber);
                     studentInfo.put("department", "Unknown");
                 }
-            } catch (Exception e) {
-                System.err.println("Error fetching student info for " + registrationNumber + ": " + e.getMessage());
-                studentInfo.put("name", "Unknown Student");
-                studentInfo.put("email", "unknown@example.com");
-                studentInfo.put("registrationNumber", registrationNumber);
-                studentInfo.put("department", "Unknown");
+                
+                Map<String, Object> record = new HashMap<>();
+                record.put("id", doc.getId());
+                record.put("registrationNumber", registrationNumber);
+                record.put("studentInfo", studentInfo);
+                record.put("date", doc.getString("date"));
+                record.put("status", doc.getString("status"));
+                record.put("subjectCode", doc.getString("subjectCode"));
+                
+                Timestamp timestamp = doc.getTimestamp("timestamp");
+                if (timestamp != null) {
+                    record.put("arrivalTime", formatTime(timestamp));
+                    record.put("timestamp", timestamp);
+                } else {
+                    record.put("arrivalTime", "-");
+                }
+                
+                record.put("location", doc.getString("location"));
+                record.put("confidence", doc.getDouble("confidence"));
+                attendanceRecords.add(record);
             }
             
-            Map<String, Object> record = new HashMap<>();
-            record.put("id", doc.getId());
-            record.put("registrationNumber", registrationNumber);
-            record.put("studentInfo", studentInfo);
-            record.put("date", doc.getString("date"));
-            record.put("status", doc.getString("status"));
-            record.put("subjectCode", doc.getString("subjectCode"));
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("success", true);
+            responseData.put("data", attendanceRecords);
             
-            Timestamp timestamp = doc.getTimestamp("timestamp");
-            if (timestamp != null) {
-                record.put("arrivalTime", formatTime(timestamp));
-                record.put("timestamp", timestamp);
-            } else {
-                record.put("arrivalTime", "-");
-            }
+            System.out.println("✅ [AttendanceServlet] Returning " + attendanceRecords.size() + " attendance records");
+            objectMapper.writeValue(response.getWriter(), responseData);
             
-            record.put("location", doc.getString("location"));
-            record.put("confidence", doc.getDouble("confidence"));
-            attendanceRecords.add(record);
+        } catch (Exception e) {
+            System.err.println("❌ [AttendanceServlet] Error in handleAttendanceReport: " + e.getMessage());
+            e.printStackTrace();
+            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("success", false);
+            errorResponse.put("message", "Failed to fetch attendance report: " + e.getMessage());
+            objectMapper.writeValue(response.getWriter(), errorResponse);
         }
-        
-        Map<String, Object> responseData = new HashMap<>();
-        responseData.put("success", true);
-        responseData.put("data", attendanceRecords);
-        
-        System.out.println("✅ Returning " + attendanceRecords.size() + " attendance records");
-        objectMapper.writeValue(response.getWriter(), responseData);
     }
 
     private void handleAllAttendance(HttpServletRequest request, HttpServletResponse response, Firestore db)

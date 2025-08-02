@@ -37,16 +37,18 @@ const AttendanceReview = () => {
 
   const fetchAttendanceData = async () => {
     try {
+      console.log('🔄 [AttendanceReview] Fetching attendance data...');
       setIsLoading(true);
-      const params = new URLSearchParams();
-      if (selectedDate) params.append('date', selectedDate);
-      if (selectedDepartment) params.append('department', selectedDepartment);
 
       const response = await apiService.getAttendanceReport('', selectedDate, '', selectedDepartment);
       
+      console.log('📡 [AttendanceReview] API Response:', response);
+      
       if (response.success && response.data) {
+        console.log('✅ [AttendanceReview] Data loaded:', response.data.length, 'records');
         setAttendanceRecords(response.data);
       } else {
+        console.error('❌ [AttendanceReview] Failed to load:', response.message);
         toast.error('Failed to load attendance data');
       }
     } catch (error) {
