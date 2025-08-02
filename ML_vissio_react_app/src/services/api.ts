@@ -330,10 +330,13 @@ export const getAttendanceStreak = async (
   }
 };
 export const markAttendance = async (attendanceData: {
-  studentId: string;
+  registrationNumber: string;
   subjectCode: string;
   status: string;
   location?: string;
+  date?: string;
+  arrivalTime?: string;
+  remarks?: string;
 }): Promise<ApiResponse<any>> => {
   try {
     const response = await fetch(

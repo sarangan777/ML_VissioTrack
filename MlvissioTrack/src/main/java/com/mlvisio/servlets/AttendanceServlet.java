@@ -466,6 +466,9 @@ public class AttendanceServlet extends HttpServlet {
         String subjectCode = (String) jsonRequest.get("subjectCode");
         String status = jsonRequest.get("status") != null ? (String) jsonRequest.get("status") : "Present";
         String location = jsonRequest.get("location") != null ? (String) jsonRequest.get("location") : "Unknown";
+        String date = jsonRequest.get("date") != null ? (String) jsonRequest.get("date") : LocalDate.now().toString();
+        String arrivalTime = (String) jsonRequest.get("arrivalTime");
+        String remarks = (String) jsonRequest.get("remarks");
 
         if (registrationNumber == null || registrationNumber.isEmpty() || subjectCode == null || subjectCode.isEmpty()) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -477,8 +480,7 @@ public class AttendanceServlet extends HttpServlet {
         }
 
         Firestore db = FirestoreClient.getFirestore();
-        String today = LocalDate.now().toString();
-        String docId = registrationNumber.replaceAll("[^a-zA-Z0-9_\\-]", "_") + "_" + today + "_" + subjectCode;
+        String docId = registrationNumber.replaceAll("[^a-zA-Z0-9_\\-]", "_") + "_" + date + "_" + subjectCode;
 
         Map<String, Object> attendanceData = new HashMap<>();
         attendanceData.put("registrationNumber", registrationNumber);
@@ -486,11 +488,19 @@ public class AttendanceServlet extends HttpServlet {
         attendanceData.put("subjectCode", subjectCode);
         attendanceData.put("status", status);
         attendanceData.put("location", location);
-        attendanceData.put("date", today);
+        attendanceData.put("date", date);
         attendanceData.put("timestamp", Timestamp.now());
         attendanceData.put("confidence", 0.95);
         attendanceData.put("studentReview", "confirmed");
         attendanceData.put("createdAt", Timestamp.now());
+        
+        // Add optional fields if provided
+        if (arrivalTime != null && !arrivalTime.isEmpty()) {
+            attendanceData.put("arrivalTime", arrivalTime);
+        }
+        if (remarks != null && !remarks.isEmpty()) {
+            attendanceData.put("remarks", remarks);
+        }
 
         ApiFuture<WriteResult> future = db.collection("attendance")
                 .document(docId).set(attendanceData);
