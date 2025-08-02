@@ -33,7 +33,6 @@ const Sidebar: React.FC<SidebarProps> = ({ isMobile, isOpen, onToggle }) => {
     { to: '/admin/dashboard', icon: <LayoutDashboard size={20} />, text: 'Dashboard' },
     { to: '/admin/schedule', icon: <Calendar size={20} />, text: 'Schedule Manager' },
     { to: '/admin/attendance', icon: <FileText size={20} />, text: 'Attendance Report' },
-    { to: '/admin/add-attendance', icon: <ClipboardList size={20} />, text: 'Add Attendance' },
     { to: '/admin/create-user', icon: <UserPlus size={20} />, text: 'Create User' },
     { to: '/admin/manage-users', icon: <Users size={20} />, text: 'Manage Users' },
     { to: '/admin/profile', icon: <User size={20} />, text: 'Profile' },

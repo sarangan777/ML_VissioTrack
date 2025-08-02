@@ -13,7 +13,6 @@ import AdminProfile from './pages/admin/AdminProfile';
 import AttendanceReview from './pages/admin/AttendanceReview';
 import CreateUser from './pages/admin/CreateUser';
 import ManageUsers from './pages/admin/ManageUsers';
-import AddAttendance from './pages/admin/AddAttendance';
 
 function App() {
   return (
@@ -36,7 +35,6 @@ function App() {
             <Route path="/admin/schedule" element={<AdminSchedule />} />
             <Route path="/admin/profile" element={<AdminProfile />} />
             <Route path="/admin/attendance" element={<AttendanceReview />} />
-            <Route path="/admin/add-attendance" element={<AddAttendance />} />
             <Route path="/admin/create-user" element={<CreateUser />} />
             <Route path="/admin/manage-users" element={<ManageUsers />} />
           </Route>
