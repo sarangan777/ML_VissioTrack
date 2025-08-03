@@ -290,59 +290,6 @@ public class AttendanceServlet extends HttpServlet {
             objectMapper.writeValue(response.getWriter(), errorResponse);
         }
     }
-            if (startDate != null && !startDate.isEmpty()) {
-                attendanceQuery = attendanceQuery.whereGreaterThanOrEqualTo("date", startDate);
-            }
-            if (endDate != null && !endDate.isEmpty()) {
-                attendanceQuery = attendanceQuery.whereLessThanOrEqualTo("date", endDate);
-            }
-            
-            // Order by date descending
-            attendanceQuery = attendanceQuery.orderBy("date", Query.Direction.DESCENDING);
-            
-            ApiFuture<QuerySnapshot> future = attendanceQuery.get();
-            List<QueryDocumentSnapshot> attendanceDocs = future.get().getDocuments();
-            List<Map<String, Object>> attendanceRecords = new ArrayList<>();
-            
-            System.out.println("📊 [AttendanceServlet] Found " + attendanceDocs.size() + " attendance records");
-            
-            for (QueryDocumentSnapshot doc : attendanceDocs) {
-                Map<String, Object> record = new HashMap<>();
-                record.put("id", doc.getId());
-                record.put("date", doc.getString("date"));
-                record.put("status", doc.getString("status"));
-                record.put("subjectCode", doc.getString("subjectCode"));
-                
-                // Format arrival time from timestamp
-                Timestamp timestamp = doc.getTimestamp("timestamp");
-                if (timestamp != null) {
-                    record.put("arrivalTime", formatTime(timestamp));
-                } else {
-                    record.put("arrivalTime", "-");
-                }
-                
-                record.put("location", doc.getString("location"));
-                record.put("confidence", doc.getDouble("confidence"));
-                attendanceRecords.add(record);
-            }
-            
-            Map<String, Object> responseData = new HashMap<>();
-            responseData.put("success", true);
-            responseData.put("data", attendanceRecords);
-            
-            System.out.println("✅ [AttendanceServlet] Returning " + attendanceRecords.size() + " attendance records");
-            objectMapper.writeValue(response.getWriter(), responseData);
-            
-        } catch (Exception e) {
-            System.err.println("❌ [AttendanceServlet] Error in handleStudentAttendance: " + e.getMessage());
-            e.printStackTrace();
-            response.setStatus(HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-            Map<String, Object> errorResponse = new HashMap<>();
-            errorResponse.put("success", false);
-            errorResponse.put("message", "Failed to fetch attendance data: " + e.getMessage());
-            objectMapper.writeValue(response.getWriter(), errorResponse);
-        }
-    }
 
     private void handleAttendanceStreak(HttpServletRequest request, HttpServletResponse response, Firestore db)
             throws IOException, ExecutionException, InterruptedException {
