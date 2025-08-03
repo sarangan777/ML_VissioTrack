@@ -250,7 +250,7 @@ private static void seedAttendance(Map<String, String> users, Map<String, String
                 doc.put("timestamp", Timestamp.now());
                 doc.put("subjectCode", subjectCode);
                 doc.put("date", date);
-                doc.put("status", i % 3 == 0 ? "Present" : (i % 3 == 1 ? "Late" : "Absent"));
+                doc.put("status", i % 4 == 0 ? "Present" : (i % 4 == 1 ? "Present" : (i % 4 == 2 ? "Late" : "Absent")));
                 doc.put("location", "Lab 0" + (i + 1));
                 doc.put("confidence", 0.9 + Math.random() * 0.1);
                 doc.put("studentReview", "confirmed");

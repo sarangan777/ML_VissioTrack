@@ -156,6 +156,18 @@ public class AttendanceServlet extends HttpServlet {
         }
 
         try {
+            // First, let's check if we have any attendance records at all
+            ApiFuture<QuerySnapshot> allAttendanceQuery = db.collection("attendance").limit(5).get();
+            List<QueryDocumentSnapshot> allAttendanceDocs = allAttendanceQuery.get().getDocuments();
+            System.out.println("📊 [AttendanceServlet] Total attendance records in database: " + allAttendanceDocs.size());
+            
+            if (!allAttendanceDocs.isEmpty()) {
+                System.out.println("📊 [AttendanceServlet] Sample attendance record structure:");
+                QueryDocumentSnapshot sampleDoc = allAttendanceDocs.get(0);
+                System.out.println("📊 [AttendanceServlet] Sample doc ID: " + sampleDoc.getId());
+                System.out.println("📊 [AttendanceServlet] Sample doc data: " + sampleDoc.getData());
+            }
+            
             // Step 1: Get student info first to get registration number
             ApiFuture<QuerySnapshot> userQuery = db.collection("users")
                     .whereEqualTo("email", studentEmail)
@@ -166,6 +178,18 @@ public class AttendanceServlet extends HttpServlet {
             System.out.println("📊 [AttendanceServlet] Found " + userDocs.size() + " users with email: " + studentEmail);
             
             if (userDocs.isEmpty()) {
+                // Let's also check without role filter
+                ApiFuture<QuerySnapshot> userQueryNoRole = db.collection("users")
+                        .whereEqualTo("email", studentEmail)
+                        .get();
+                List<QueryDocumentSnapshot> userDocsNoRole = userQueryNoRole.get().getDocuments();
+                System.out.println("📊 [AttendanceServlet] Found " + userDocsNoRole.size() + " users with email (no role filter): " + studentEmail);
+                
+                if (!userDocsNoRole.isEmpty()) {
+                    QueryDocumentSnapshot userDoc = userDocsNoRole.get(0);
+                    System.out.println("📊 [AttendanceServlet] User found but role mismatch. User role: " + userDoc.getString("role"));
+                }
+                
                 System.out.println("❌ [AttendanceServlet] Student not found: " + studentEmail);
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 Map<String, Object> errorResponse = new HashMap<>();
@@ -190,6 +214,32 @@ public class AttendanceServlet extends HttpServlet {
                         .get();
                 attendanceDocs = regQuery.get().getDocuments();
                 System.out.println("📊 [AttendanceServlet] Found " + attendanceDocs.size() + " records by registrationNumber");
+                
+                // If no records found, let's try a broader search
+                if (attendanceDocs.isEmpty()) {
+                    System.out.println("📊 [AttendanceServlet] No records found by registrationNumber, trying broader search...");
+                    
+                    // Check if there are any records with similar registration numbers
+                    ApiFuture<QuerySnapshot> allRegsQuery = db.collection("attendance").get();
+                    List<QueryDocumentSnapshot> allRegsDocs = allRegsQuery.get().getDocuments();
+                    System.out.println("📊 [AttendanceServlet] Checking all " + allRegsDocs.size() + " attendance records for similar registration numbers:");
+                    
+                    for (QueryDocumentSnapshot doc : allRegsDocs) {
+                        String docRegNum = doc.getString("registrationNumber");
+                        String docVertexLabel = doc.getString("vertexLabel");
+                        System.out.println("📊 [AttendanceServlet] Found record with regNum: '" + docRegNum + "', vertexLabel: '" + docVertexLabel + "'");
+                        
+                        // Try exact match or contains match
+                        if (registrationNumber.equals(docRegNum) || 
+                            (docRegNum != null && docRegNum.contains(registrationNumber)) ||
+                            (registrationNumber.contains(docRegNum))) {
+                            attendanceDocs.add(doc);
+                            System.out.println("📊 [AttendanceServlet] Added matching record: " + doc.getId());
+                        }
+                    }
+                    
+                    System.out.println("📊 [AttendanceServlet] After broader search: " + attendanceDocs.size() + " records found");
+                }
             }
             
             // If no records found, try by vertexLabel
@@ -199,19 +249,6 @@ public class AttendanceServlet extends HttpServlet {
                         .get();
                 attendanceDocs = vertexQuery.get().getDocuments();
                 System.out.println("📊 [AttendanceServlet] Found " + attendanceDocs.size() + " records by vertexLabel");
-            }
-            
-            // If still no records, try to find any records and log them for debugging
-            if (attendanceDocs.isEmpty()) {
-                System.out.println("📊 [AttendanceServlet] No records found, checking all attendance records...");
-                ApiFuture<QuerySnapshot> allQuery = db.collection("attendance").limit(5).get();
-                List<QueryDocumentSnapshot> allDocs = allQuery.get().getDocuments();
-                System.out.println("📊 [AttendanceServlet] Total attendance records in DB: " + allDocs.size());
-                for (QueryDocumentSnapshot doc : allDocs) {
-                    System.out.println("📊 [AttendanceServlet] Sample record - regNum: " + doc.getString("registrationNumber") + 
-                                     ", vertexLabel: " + doc.getString("vertexLabel") + 
-                                     ", date: " + doc.getString("date"));
-                }
             }
             
             // Step 3: Apply date filters if provided and records exist
@@ -274,7 +311,7 @@ public class AttendanceServlet extends HttpServlet {
             Map<String, Object> responseData = new HashMap<>();
             responseData.put("success", true);
             responseData.put("data", attendanceRecords);
-            responseData.put("message", "Found " + attendanceRecords.size() + " attendance records");
+            responseData.put("message", "Found " + attendanceRecords.size() + " attendance records for " + studentEmail);
             
             System.out.println("✅ [AttendanceServlet] Returning " + attendanceRecords.size() + " attendance records");
             objectMapper.writeValue(response.getWriter(), responseData);

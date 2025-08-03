@@ -34,33 +34,52 @@ const AttendanceReport: React.FC = () => {
         console.log('🔄 [AttendanceReport] Starting fetch for user:', user.email);
         console.log('🔄 [AttendanceReport] User object:', user);
         setIsLoading(true);
-        const response = await apiService.getStudentAttendance(user.email);
+        
+        // Try both student attendance endpoint and general attendance report
+        let response = await apiService.getStudentAttendance(user.email);
+        
+        // If student attendance fails, try the general attendance report
+        if (!response.success) {
+          console.log('🔄 [AttendanceReport] Student attendance failed, trying general report...');
+          response = await apiService.getAttendanceReport(user.email);
+        }
         
         console.log('📡 [AttendanceReport] Full API Response:', response);
         
         if (response.success && response.data) {
           console.log('✅ [AttendanceReport] Raw data from API:', response.data);
-          const formattedData = response.data.map((record: any) => ({
-            id: record.id,
-            date: record.date,
-            status: record.status,
-            arrivalTime: record.arrivalTime || '-',
-            subjectCode: record.subjectCode || 'N/A',
-            location: record.location || 'N/A'
-          }));
+          
+          let formattedData;
+          if (Array.isArray(response.data)) {
+            formattedData = response.data.map((record: any) => ({
+              id: record.id || `${record.registrationNumber}_${record.date}_${record.subjectCode}`,
+              date: record.date,
+              status: record.status,
+              arrivalTime: record.arrivalTime || '-',
+              subjectCode: record.subjectCode || 'N/A',
+              location: record.location || 'N/A'
+            }));
+          } else {
+            console.error('❌ [AttendanceReport] Data is not an array:', response.data);
+            formattedData = [];
+          }
+          
           console.log('✅ [AttendanceReport] Formatted data:', formattedData);
           setAttendanceData(formattedData);
           
           if (formattedData.length === 0) {
             console.log('⚠️ [AttendanceReport] No attendance records found for user');
+            toast.info('No attendance records found. This might be because no attendance has been marked yet.');
           }
         } else {
           console.error('❌ [AttendanceReport] API returned error:', response.message);
           toast.error(response.message || 'Failed to load attendance data');
+          setAttendanceData([]); // Set empty array instead of leaving undefined
         }
       } catch (error) {
         console.error('❌ [AttendanceReport] Exception during fetch:', error);
         toast.error('Network error: Failed to load attendance data');
+        setAttendanceData([]); // Set empty array on error
       } finally {
         setIsLoading(false);
       }

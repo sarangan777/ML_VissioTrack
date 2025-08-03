@@ -244,7 +244,8 @@ export const submitLeaveRequest = async (
 export const getAttendanceReport = async (
   email?: string,
   startDate?: string,
-  endDate?: string
+  endDate?: string,
+  department?: string
 ): Promise<ApiResponse<any[]>> => {
   try {
     const params = new URLSearchParams();
