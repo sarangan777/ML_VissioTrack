@@ -31,13 +31,15 @@ const AttendanceReport: React.FC = () => {
       if (!user?.email) return;
       
       try {
-        console.log('🔄 [AttendanceReport] Fetching attendance for user:', user.email);
+        console.log('🔄 [AttendanceReport] Starting fetch for user:', user.email);
+        console.log('🔄 [AttendanceReport] User object:', user);
         setIsLoading(true);
         const response = await apiService.getStudentAttendance(user.email);
         
-        console.log('📡 [AttendanceReport] API Response:', response);
+        console.log('📡 [AttendanceReport] Full API Response:', response);
         
         if (response.success && response.data) {
+          console.log('✅ [AttendanceReport] Raw data from API:', response.data);
           const formattedData = response.data.map((record: any) => ({
             id: record.id,
             date: record.date,
@@ -48,13 +50,17 @@ const AttendanceReport: React.FC = () => {
           }));
           console.log('✅ [AttendanceReport] Formatted data:', formattedData);
           setAttendanceData(formattedData);
+          
+          if (formattedData.length === 0) {
+            console.log('⚠️ [AttendanceReport] No attendance records found for user');
+          }
         } else {
-          console.error('Failed to load attendance data:', response.message);
-          toast.error('Failed to load attendance data');
+          console.error('❌ [AttendanceReport] API returned error:', response.message);
+          toast.error(response.message || 'Failed to load attendance data');
         }
       } catch (error) {
-        console.error('Error fetching attendance data:', error);
-        toast.error('Failed to load attendance data');
+        console.error('❌ [AttendanceReport] Exception during fetch:', error);
+        toast.error('Network error: Failed to load attendance data');
       } finally {
         setIsLoading(false);
       }

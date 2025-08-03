@@ -383,14 +383,17 @@ export const getStudentAttendance = async (
   endDate?: string
 ): Promise<ApiResponse<any[]>> => {
   try {
-    console.log('🔄 Fetching student attendance for:', email);
+    console.log('🔄 [API] Fetching student attendance for:', email);
     const params = new URLSearchParams();
     params.append('email', email);
     if (startDate) params.append('startDate', startDate);
     if (endDate) params.append('endDate', endDate);
 
+    const url = `http://localhost:8080/MlvissioTrack/api/attendance/student?${params}`;
+    console.log('🔄 [API] Request URL:', url);
+
     const response = await fetch(
-      `http://localhost:8080/MlvissioTrack/api/attendance/student?${params}`,
+      url,
       {
         method: 'GET',
         headers: {
@@ -400,14 +403,17 @@ export const getStudentAttendance = async (
       }
     );
 
-    console.log('📡 Student attendance response status:', response.status);
+    console.log('📡 [API] Student attendance response status:', response.status);
+    console.log('📡 [API] Response headers:', Object.fromEntries(response.headers.entries()));
+    
     const result = await response.json();
-    console.log('📡 Student attendance response data:', result);
+    console.log('📡 [API] Student attendance response data:', result);
 
     if (response.ok && result.success) {
       return {
         success: true,
         data: result.data,
+        message: result.message,
       };
     }
 
@@ -417,7 +423,7 @@ export const getStudentAttendance = async (
       message: result.message || 'Failed to fetch student attendance',
     };
   } catch (error: any) {
-    console.error('Student attendance fetch failed:', error);
+    console.error('❌ [API] Student attendance fetch failed:', error);
     return {
       success: false,
       data: null,
