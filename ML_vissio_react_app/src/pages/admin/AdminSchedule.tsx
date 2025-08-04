@@ -37,6 +37,8 @@ const AdminSchedule = () => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+  const [selectedDepartment, setSelectedDepartment] = useState('');
   const [formData, setFormData] = useState<ScheduleFormData>({
     subject: '',
     department: '',
@@ -58,13 +60,21 @@ const AdminSchedule = () => {
     fetchData();
   }, []);
 
+  // Fetch subjects when filters change
+  useEffect(() => {
+    if (selectedDepartment) {
+      fetchSubjects();
+    } else {
+      setSubjects([]);
+    }
+  }, [selectedDepartment]);
+
   const fetchData = async () => {
     try {
       setIsLoading(true);
-      const [schedulesResponse, lecturersResponse, subjectsResponse] = await Promise.all([
+      const [schedulesResponse, lecturersResponse] = await Promise.all([
         apiService.getWeeklySchedule(),
-        apiService.getLecturers(),
-        apiService.getSubjects()
+        apiService.getLecturers()
       ]);
 
       if (schedulesResponse.success && schedulesResponse.data) {
@@ -84,10 +94,6 @@ const AdminSchedule = () => {
       if (lecturersResponse.success && lecturersResponse.data) {
         setLecturers(lecturersResponse.data);
       }
-
-      if (subjectsResponse.success && subjectsResponse.data) {
-        setSubjects(subjectsResponse.data);
-      }
     } catch (error) {
       console.error('Error fetching data:', error);
       toast.error('Failed to load data');
@@ -96,20 +102,56 @@ const AdminSchedule = () => {
     }
   };
 
+  const fetchSubjects = async () => {
+    setIsLoadingSubjects(true);
+    try {
+      console.log('🔄 [AdminSchedule] Fetching subjects for department:', selectedDepartment);
+      const response = await apiService.getSubjects(selectedDepartment);
+      console.log('📡 [AdminSchedule] Subjects response:', response);
+      
+      if (response.success && response.data) {
+        console.log('✅ [AdminSchedule] Subjects loaded:', response.data.length);
+        setSubjects(response.data);
+      } else {
+        console.error('❌ [AdminSchedule] Failed to load subjects:', response.message);
+        toast.error('Failed to load subjects');
+        setSubjects([]);
+      }
+    } catch (error) {
+      console.error('Error fetching subjects:', error);
+      toast.error('Error loading subjects');
+      setSubjects([]);
+    } finally {
+      setIsLoadingSubjects(false);
+    }
+  };
+
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
+    console.log('🔄 [AdminSchedule] Input change:', name, '=', value);
+    
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
     
-    // Auto-select lecturer when subject is selected
+    // Auto-populate lecturer when subject is selected
     if (name === 'subject' && value) {
-      const selectedSubject = subjects.find(subject => subject.courseCode === value);
-      if (selectedSubject && selectedSubject.lecturerName) {
+      console.log('🔄 [AdminSchedule] Subject selected:', value);
+      const selectedSubjectData = subjects.find(subject => subject.courseCode === value);
+      console.log('🔄 [AdminSchedule] Found subject data:', selectedSubjectData);
+      
+      if (selectedSubjectData && selectedSubjectData.lecturerName) {
+        console.log('✅ [AdminSchedule] Auto-populating lecturer:', selectedSubjectData.lecturerName);
         setFormData(prev => ({
           ...prev,
-          lecturer: selectedSubject.lecturerName
+          lecturer: selectedSubjectData.lecturerName
+        }));
+      } else {
+        console.log('⚠️ [AdminSchedule] No lecturer found for subject');
+        setFormData(prev => ({
+          ...prev,
+          lecturer: ''
         }));
       }
     }
@@ -152,6 +194,7 @@ const AdminSchedule = () => {
 
   const handleEdit = (schedule: Schedule) => {
     setSelectedSchedule(schedule);
+    setSelectedDepartment(schedule.department);
     setFormData({
       subject: schedule.subjectCode,
       department: schedule.department,
@@ -188,6 +231,7 @@ const AdminSchedule = () => {
     setIsModalOpen(false);
     setIsEditMode(false);
     setSelectedSchedule(null);
+    setSelectedDepartment('');
     setFormData({
       subject: '',
       department: '',
@@ -295,6 +339,29 @@ const AdminSchedule = () => {
               {isEditMode ? 'Edit Schedule' : 'Add New Schedule'}
             </Dialog.Title>
 
+            {/* Dynamic Filters */}
+            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
+              <h3 className="text-lg font-medium text-gray-800 mb-3">Schedule Filters</h3>
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Department *
+                  </label>
+                  <select
+                    value={selectedDepartment}
+                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  >
+                    <option value="">Select Department</option>
+                    {departments.map(dept => (
+                      <option key={dept} value={dept}>{dept}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -305,15 +372,24 @@ const AdminSchedule = () => {
                   value={formData.subject}
                   onChange={handleInputChange}
                   className="w-full p-2 border border-gray-300 rounded-lg"
+                  disabled={isLoadingSubjects || !selectedDepartment}
                   required
                 >
-                  <option value="">Select Subject</option>
+                  <option value="">
+                    {!selectedDepartment ? 'Select Department First' : 
+                     isLoadingSubjects ? 'Loading subjects...' : 'Select Subject'}
+                  </option>
                   {subjects.map(subject => (
                     <option key={subject.courseCode} value={subject.courseCode}>
-                      {subject.courseCode} - {subject.courseName} ({subject.lecturerName || 'No Lecturer'})
+                      {subject.courseCode} - {subject.courseName}
                     </option>
                   ))}
                 </select>
+                {subjects.length > 0 && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Found {subjects.length} subjects for {selectedDepartment}
+                  </div>
+                )}
               </div>
 
               <div>
@@ -413,9 +489,10 @@ const AdminSchedule = () => {
                   type="text"
                   name="lecturer"
                   value={formData.lecturer}
+                  onChange={handleInputChange}
                   className="w-full p-2 border border-gray-300 rounded-lg bg-gray-50"
                   placeholder="Auto-selected based on subject"
-                  readOnly
+                  readOnly={!!formData.subject}
                 />
               </div>
 

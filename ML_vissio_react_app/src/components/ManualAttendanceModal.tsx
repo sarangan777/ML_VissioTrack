@@ -77,13 +77,13 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
 
   // Fetch subjects when filters change
   useEffect(() => {
-    if (selectedDepartment && selectedYear && selectedType) {
+    if (selectedDepartment) {
       fetchSubjects();
     } else {
       setSubjects([]);
       setSelectedSubject('');
     }
-  }, [selectedDepartment, selectedYear, selectedType]);
+  }, [selectedDepartment]);
 
   // Fetch students when subject is selected
   useEffect(() => {
@@ -137,22 +137,15 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
   const fetchSubjects = async () => {
     setIsLoadingSubjects(true);
     try {
+      console.log('🔄 [ManualAttendance] Fetching subjects for department:', selectedDepartment);
       const response = await apiService.getSubjects(selectedDepartment);
+      console.log('📡 [ManualAttendance] Subjects response:', response);
+      
       if (response.success && response.data) {
-        // Filter subjects based on year (semester mapping)
-        const semesterMap: { [key: string]: string[] } = {
-          '1st Year': ['1st Semester', '2nd Semester'],
-          '2nd Year': ['3rd Semester', '4th Semester'],
-          '3rd Year': ['5th Semester', '6th Semester']
-        };
-        
-        const relevantSemesters = semesterMap[selectedYear] || [];
-        const filteredSubjects = response.data.filter((subject: Subject) =>
-          relevantSemesters.includes(subject.semester) && subject.department === selectedDepartment
-        );
-        
-        setSubjects(filteredSubjects);
+        console.log('✅ [ManualAttendance] Subjects loaded:', response.data.length);
+        setSubjects(response.data);
       } else {
+        console.error('❌ [ManualAttendance] Failed to load subjects:', response.message);
         toast.error('Failed to load subjects');
         setSubjects([]);
       }
@@ -469,7 +462,7 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
             </div>
 
             {/* Subject Selection */}
-            {selectedDepartment && selectedYear && selectedType && (
+            {selectedDepartment && (
               <div className="mb-6 p-4 bg-green-50 rounded-lg">
                 <h3 className="text-lg font-medium text-gray-800 mb-3">Subject Selection</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -495,8 +488,8 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                     </select>
                   </div>
                   {subjects.length > 0 && (
-                    <div className="text-sm text-gray-600 pt-6">
-                      Found {subjects.length} subjects for {selectedYear} ({selectedDepartment})
+                    <div className="text-xs text-gray-500 pt-6">
+                      Found {subjects.length} subjects for {selectedDepartment}
                     </div>
                   )}
                 </div>

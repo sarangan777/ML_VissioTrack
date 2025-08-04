@@ -603,11 +603,15 @@ export const getLecturers = async (): Promise<ApiResponse<any[]>> => {
 
 export const getSubjects = async (department?: string): Promise<ApiResponse<any[]>> => {
   try {
+    console.log('🔄 [API] Fetching subjects for department:', department);
     const params = new URLSearchParams();
     if (department) params.append('department', department);
 
+    const url = `http://localhost:8080/MlvissioTrack/api/subjects?${params}`;
+    console.log('🔄 [API] Request URL:', url);
+    
     const response = await fetch(
-      `http://localhost:8080/MlvissioTrack/api/subjects?${params}`,
+      url,
       {
         method: 'GET',
         headers: {
@@ -617,7 +621,9 @@ export const getSubjects = async (department?: string): Promise<ApiResponse<any[
       }
     );
 
+    console.log('📡 [API] Subjects response status:', response.status);
     const result = await response.json();
+    console.log('📡 [API] Subjects response data:', result);
 
     if (response.ok && result.success) {
       return {
