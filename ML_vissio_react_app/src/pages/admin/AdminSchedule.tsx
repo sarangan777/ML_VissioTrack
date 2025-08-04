@@ -310,18 +310,12 @@ const AdminSchedule = () => {
                 <h3 className="font-semibold text-gray-800 mb-3 text-center">{day}</h3>
                 <div className="space-y-2">
                   {schedulesByDay[day].map(schedule => (
-                      onChange={(e) => {
-                        console.log('🔄 [AdminSchedule] Department selection changed to:', e.target.value);
-                        setSelectedDepartment(e.target.value);
-                        setSelectedSubject(''); // Clear selected subject when department changes
-                      }}
+                    <div
                       key={schedule.id}
                       className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm"
                     >
                       <div className="font-medium text-blue-800">{schedule.subjectCode}</div>
-                        {!selectedDepartment ? 'Select Department First' : 
-                         isLoadingSubjects ? 'Loading subjects...' : 
-                         subjects.length === 0 ? 'No subjects available' : 'Select Subject'}
+                      <div className="text-blue-600 text-xs">
                         {schedule.startTime} - {schedule.endTime}
                       </div>
                       <div className="text-blue-600 text-xs">{schedule.room}</div>
@@ -375,7 +369,11 @@ const AdminSchedule = () => {
                   </label>
                   <select
                     value={selectedDepartment}
-                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                    onChange={(e) => {
+                      console.log('🔄 [AdminSchedule] Department selection changed to:', e.target.value);
+                      setSelectedDepartment(e.target.value);
+                      setFormData(prev => ({ ...prev, subject: '' })); // Clear selected subject when department changes
+                    }}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
@@ -384,6 +382,17 @@ const AdminSchedule = () => {
                       <option key={dept} value={dept}>{dept}</option>
                     ))}
                   </select>
+                  {selectedDepartment && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Selected: {selectedDepartment}
+                    </div>
+                  )}
+                  {isLoadingSubjects && (
+                    <div className="text-xs text-blue-500 mt-1 flex items-center">
+                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500 mr-1"></div>
+                      Loading subjects for {selectedDepartment}...
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -403,8 +412,8 @@ const AdminSchedule = () => {
                 >
                   <option value="">
                     {!selectedDepartment ? 'Select Department First' : 
-                     isLoadingSubjects ? 'Loading subjects...' : 'Select Subject'}
-                     subjects.length === 0 ? 'No subjects available' :
+                     isLoadingSubjects ? 'Loading subjects...' : 
+                     subjects.length === 0 ? 'No subjects available' : 'Select Subject'}
                   </option>
                   {subjects.map(subject => (
                     <option key={subject.courseCode} value={subject.courseCode}>
@@ -420,17 +429,6 @@ const AdminSchedule = () => {
                 {selectedDepartment && !isLoadingSubjects && subjects.length === 0 && (
                   <div className="text-xs text-red-500 mt-1">
                     ⚠️ No subjects found for {selectedDepartment}
-                    {selectedDepartment && (
-                      <div className="text-xs text-gray-500 mt-1">
-                        Selected: {selectedDepartment}
-                      </div>
-                    )}
-                    {isLoadingSubjects && (
-                      <div className="text-xs text-blue-500 mt-1 flex items-center">
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500 mr-1"></div>
-                        Loading subjects for {selectedDepartment}...
-                      </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -503,7 +501,7 @@ const AdminSchedule = () => {
                   >
                     <option value="">Select Time</option>
                     {timeSlots.map(time => (
-                      ✅ Found {subjects.length} subjects for {selectedDepartment}
+                      <option key={time} value={time}>{time}</option>
                     ))}
                   </select>
                 </div>

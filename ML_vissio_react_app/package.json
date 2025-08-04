@@ -1,4 +1,5 @@
 {
+  "type": "module",
   "dependencies": {
     "@headlessui/react": "^1.7.18",
     "axios": "^1.6.7",
