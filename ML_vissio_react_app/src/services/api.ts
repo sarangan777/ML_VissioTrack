@@ -604,11 +604,12 @@ export const getLecturers = async (): Promise<ApiResponse<any[]>> => {
 export const getSubjects = async (department?: string): Promise<ApiResponse<any[]>> => {
   try {
     console.log('🔄 [API] Fetching subjects for department:', department);
+    console.log('🔄 [API] Making request to subjects endpoint...');
     const params = new URLSearchParams();
     if (department) params.append('department', department);
 
     const url = `http://localhost:8080/MlvissioTrack/api/subjects?${params}`;
-    console.log('🔄 [API] Request URL:', url);
+    console.log('🔄 [API] Full request URL:', url);
     
     const response = await fetch(
       url,
@@ -622,23 +623,40 @@ export const getSubjects = async (department?: string): Promise<ApiResponse<any[
     );
 
     console.log('📡 [API] Subjects response status:', response.status);
+    console.log('📡 [API] Response headers:', Object.fromEntries(response.headers.entries()));
+    
+    if (!response.ok) {
+      console.error('❌ [API] Response not ok:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('❌ [API] Error response body:', errorText);
+      return {
+        success: false,
+        data: null,
+        message: `Server error: ${response.status} ${response.statusText}`,
+      };
+    }
+    
     const result = await response.json();
     console.log('📡 [API] Subjects response data:', result);
+    console.log('📡 [API] Number of subjects received:', result.data ? result.data.length : 0);
 
     if (response.ok && result.success) {
+      console.log('✅ [API] Successfully fetched subjects:', result.data.length);
       return {
         success: true,
         data: result.data,
+        message: result.message,
       };
     }
 
+    console.error('❌ [API] API returned error:', result.message);
     return {
       success: false,
       data: null,
       message: result.message || 'Failed to fetch subjects',
     };
   } catch (error: any) {
-    console.error('Subjects fetch failed:', error);
+    console.error('❌ [API] Subjects fetch failed:', error);
     return {
       success: false,
       data: null,

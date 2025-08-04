@@ -62,9 +62,11 @@ const AdminSchedule = () => {
 
   // Fetch subjects when filters change
   useEffect(() => {
-    if (selectedDepartment) {
+    if (selectedDepartment && selectedDepartment.trim() !== '') {
+      console.log('🔄 [AdminSchedule] Department changed, fetching subjects for:', selectedDepartment);
       fetchSubjects();
     } else {
+      console.log('🔄 [AdminSchedule] No department selected, clearing subjects');
       setSubjects([]);
     }
   }, [selectedDepartment]);
@@ -103,23 +105,41 @@ const AdminSchedule = () => {
   };
 
   const fetchSubjects = async () => {
+    if (!selectedDepartment || selectedDepartment.trim() === '') {
+      console.log('⚠️ [AdminSchedule] No department selected, skipping subject fetch');
+      return;
+    }
+    
     setIsLoadingSubjects(true);
+    setSubjects([]); // Clear existing subjects
+    
     try {
       console.log('🔄 [AdminSchedule] Fetching subjects for department:', selectedDepartment);
+      console.log('🔄 [AdminSchedule] API call starting...');
+      
       const response = await apiService.getSubjects(selectedDepartment);
-      console.log('📡 [AdminSchedule] Subjects response:', response);
+      
+      console.log('📡 [AdminSchedule] Full API response:', response);
+      console.log('📡 [AdminSchedule] Response success:', response.success);
+      console.log('📡 [AdminSchedule] Response data:', response.data);
       
       if (response.success && response.data) {
-        console.log('✅ [AdminSchedule] Subjects loaded:', response.data.length);
+        console.log('✅ [AdminSchedule] Subjects loaded successfully:', response.data.length, 'subjects');
+        console.log('✅ [AdminSchedule] Subject details:', response.data);
         setSubjects(response.data);
+        
+        if (response.data.length === 0) {
+          console.log('⚠️ [AdminSchedule] No subjects found for department:', selectedDepartment);
+          toast.info(`No subjects found for department: ${selectedDepartment}`);
+        }
       } else {
-        console.error('❌ [AdminSchedule] Failed to load subjects:', response.message);
-        toast.error('Failed to load subjects');
+        console.error('❌ [AdminSchedule] API returned error:', response.message);
+        toast.error(`Failed to load subjects: ${response.message || 'Unknown error'}`);
         setSubjects([]);
       }
     } catch (error) {
-      console.error('Error fetching subjects:', error);
-      toast.error('Error loading subjects');
+      console.error('❌ [AdminSchedule] Exception during subject fetch:', error);
+      toast.error(`Network error: ${error.message || 'Failed to load subjects'}`);
       setSubjects([]);
     } finally {
       setIsLoadingSubjects(false);
@@ -290,12 +310,18 @@ const AdminSchedule = () => {
                 <h3 className="font-semibold text-gray-800 mb-3 text-center">{day}</h3>
                 <div className="space-y-2">
                   {schedulesByDay[day].map(schedule => (
-                    <div
+                      onChange={(e) => {
+                        console.log('🔄 [AdminSchedule] Department selection changed to:', e.target.value);
+                        setSelectedDepartment(e.target.value);
+                        setSelectedSubject(''); // Clear selected subject when department changes
+                      }}
                       key={schedule.id}
                       className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm"
                     >
                       <div className="font-medium text-blue-800">{schedule.subjectCode}</div>
-                      <div className="text-blue-600 text-xs">
+                        {!selectedDepartment ? 'Select Department First' : 
+                         isLoadingSubjects ? 'Loading subjects...' : 
+                         subjects.length === 0 ? 'No subjects available' : 'Select Subject'}
                         {schedule.startTime} - {schedule.endTime}
                       </div>
                       <div className="text-blue-600 text-xs">{schedule.room}</div>
@@ -378,6 +404,7 @@ const AdminSchedule = () => {
                   <option value="">
                     {!selectedDepartment ? 'Select Department First' : 
                      isLoadingSubjects ? 'Loading subjects...' : 'Select Subject'}
+                     subjects.length === 0 ? 'No subjects available' :
                   </option>
                   {subjects.map(subject => (
                     <option key={subject.courseCode} value={subject.courseCode}>
@@ -385,9 +412,25 @@ const AdminSchedule = () => {
                     </option>
                   ))}
                 </select>
-                {subjects.length > 0 && (
+                {selectedDepartment && subjects.length > 0 && (
                   <div className="text-xs text-gray-500 mt-1">
-                    Found {subjects.length} subjects for {selectedDepartment}
+                    ✅ {subjects.length} subjects available for {selectedDepartment}
+                  </div>
+                )}
+                {selectedDepartment && !isLoadingSubjects && subjects.length === 0 && (
+                  <div className="text-xs text-red-500 mt-1">
+                    ⚠️ No subjects found for {selectedDepartment}
+                    {selectedDepartment && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Selected: {selectedDepartment}
+                      </div>
+                    )}
+                    {isLoadingSubjects && (
+                      <div className="text-xs text-blue-500 mt-1 flex items-center">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500 mr-1"></div>
+                        Loading subjects for {selectedDepartment}...
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -460,7 +503,7 @@ const AdminSchedule = () => {
                   >
                     <option value="">Select Time</option>
                     {timeSlots.map(time => (
-                      <option key={time} value={time}>{time}</option>
+                      ✅ Found {subjects.length} subjects for {selectedDepartment}
                     ))}
                   </select>
                 </div>

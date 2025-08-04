@@ -135,23 +135,41 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
   };
 
   const fetchSubjects = async () => {
+    if (!selectedDepartment || selectedDepartment.trim() === '') {
+      console.log('⚠️ [ManualAttendance] No department selected, skipping subject fetch');
+      return;
+    }
+    
     setIsLoadingSubjects(true);
+    setSubjects([]); // Clear existing subjects
+    
     try {
       console.log('🔄 [ManualAttendance] Fetching subjects for department:', selectedDepartment);
+      console.log('🔄 [ManualAttendance] API call starting...');
+      
       const response = await apiService.getSubjects(selectedDepartment);
-      console.log('📡 [ManualAttendance] Subjects response:', response);
+      
+      console.log('📡 [ManualAttendance] Full API response:', response);
+      console.log('📡 [ManualAttendance] Response success:', response.success);
+      console.log('📡 [ManualAttendance] Response data:', response.data);
       
       if (response.success && response.data) {
-        console.log('✅ [ManualAttendance] Subjects loaded:', response.data.length);
+        console.log('✅ [ManualAttendance] Subjects loaded successfully:', response.data.length, 'subjects');
+        console.log('✅ [ManualAttendance] Subject details:', response.data);
         setSubjects(response.data);
+        
+        if (response.data.length === 0) {
+          console.log('⚠️ [ManualAttendance] No subjects found for department:', selectedDepartment);
+          toast.info(`No subjects found for department: ${selectedDepartment}`);
+        }
       } else {
-        console.error('❌ [ManualAttendance] Failed to load subjects:', response.message);
-        toast.error('Failed to load subjects');
+        console.error('❌ [ManualAttendance] API returned error:', response.message);
+        toast.error(`Failed to load subjects: ${response.message || 'Unknown error'}`);
         setSubjects([]);
       }
     } catch (error) {
-      console.error('Error fetching subjects:', error);
-      toast.error('Error loading subjects');
+      console.error('❌ [ManualAttendance] Exception during subject fetch:', error);
+      toast.error(`Network error: ${error.message || 'Failed to load subjects'}`);
       setSubjects([]);
     } finally {
       setIsLoadingSubjects(false);
@@ -414,7 +432,11 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                   </label>
                   <select
                     value={selectedDepartment}
-                    onChange={(e) => setSelectedDepartment(e.target.value)}
+                    onChange={(e) => {
+                      console.log('🔄 [ManualAttendance] Department selection changed to:', e.target.value);
+                      setSelectedDepartment(e.target.value);
+                      setSelectedSubject(''); // Clear selected subject when department changes
+                    }}
                     className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
@@ -423,6 +445,11 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                       <option key={dept} value={dept}>{dept}</option>
                     ))}
                   </select>
+                  {selectedDepartment && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      Selected: {selectedDepartment}
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -478,7 +505,9 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                       required
                     >
                       <option value="">
-                        {isLoadingSubjects ? 'Loading subjects...' : 'Select Subject'}
+                        {!selectedDepartment ? 'Select Department First' : 
+                         isLoadingSubjects ? 'Loading subjects...' : 
+                         subjects.length === 0 ? 'No subjects available' : 'Select Subject'}
                       </option>
                       {subjects.map(subject => (
                         <option key={subject.id} value={subject.id}>
@@ -486,10 +515,21 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
                         </option>
                       ))}
                     </select>
+                    {isLoadingSubjects && (
+                      <div className="text-xs text-blue-500 mt-1 flex items-center">
+                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500 mr-1"></div>
+                        Loading subjects for {selectedDepartment}...
+                      </div>
+                    )}
                   </div>
-                  {subjects.length > 0 && (
+                  {selectedDepartment && subjects.length > 0 && (
                     <div className="text-xs text-gray-500 pt-6">
-                      Found {subjects.length} subjects for {selectedDepartment}
+                      ✅ Found {subjects.length} subjects for {selectedDepartment}
+                    </div>
+                  )}
+                  {selectedDepartment && !isLoadingSubjects && subjects.length === 0 && (
+                    <div className="text-xs text-red-500 pt-6">
+                      ⚠️ No subjects found for {selectedDepartment}
                     </div>
                   )}
                 </div>
@@ -723,10 +763,10 @@ const ManualAttendanceModal: React.FC<ManualAttendanceModalProps> = ({
               </button>
               <button
                 onClick={handleSubmit}
-                disabled={!canSubmit}
+                disabled={!canSubmit || isLoadingSubjects}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Submit Attendance
+                {isLoadingSubjects ? 'Loading...' : 'Submit Attendance'}
               </button>
             </div>
           </div>
