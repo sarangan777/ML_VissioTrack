@@ -74,15 +74,25 @@ const Profile: React.FC = () => {
   const fetchUserProfile = async () => {
     try {
       setIsLoading(true);
+      console.log('🔄 [Profile] Fetching user profile...');
       const response = await apiService.getUserProfile();
       
+      console.log('📡 [Profile] Profile response:', response);
+      
       if (response.success && response.data) {
+        console.log('✅ [Profile] Profile data received:', response.data);
+        console.log('📅 [Profile] Birth date from API:', response.data.birthDate);
         setUser(response.data);
         setProfileForm({
           name: response.data.name || '',
           birthDate: response.data.birthDate || '',
         });
+        console.log('📝 [Profile] Form data set:', {
+          name: response.data.name || '',
+          birthDate: response.data.birthDate || '',
+        });
       } else {
+        console.error('❌ [Profile] Failed to fetch profile:', response.message);
         setError(response.message || 'Failed to fetch user profile');
       }
     } catch (err) {
@@ -381,13 +391,34 @@ const Profile: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-medium text-gray-500">Date of Birth</h3>
                   <p className="mt-1 text-lg text-gray-900">
-                    {user?.birthDate ? new Date(user.birthDate).toLocaleDateString('en-US', { 
-                      year: 'numeric', 
-                      month: 'long', 
-                      day: 'numeric' 
-                    }) : 'Not specified'}
+                    {user?.birthDate ? (() => {
+                      try {
+                        return new Date(user.birthDate).toLocaleDateString('en-US', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        });
+                      } catch (e) {
+                        console.error('Error formatting birth date:', e, 'Raw value:', user.birthDate);
+                        return user.birthDate; // Show raw value if formatting fails
+                      }
+                    })() : 'Not specified'}
                   </p>
                 </div>
+
+                {user?.role === 'student' && (
+                  <>
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Academic Year</h3>
+                      <p className="mt-1 text-lg text-gray-900">{user?.year || 'Not specified'}</p>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500">Study Type</h3>
+                      <p className="mt-1 text-lg text-gray-900">{user?.type || 'Not specified'}</p>
+                    </div>
+                  </>
+                )}
               </div>
 
               <div className="pt-6">

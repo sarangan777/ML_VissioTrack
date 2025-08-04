@@ -197,9 +197,12 @@ public class UserManagementServlet extends HttpServlet {
             user.put("email", doc.getString("email"));
             user.put("registrationNumber", doc.getString("registrationNumber"));
             user.put("department", doc.getString("department"));
-            user.put("role", doc.getString("role"));
+            user.put("birthDate", doc.getString("birthDate"));
             user.put("year", doc.getString("year"));
             user.put("type", doc.getString("type"));
+            user.put("adminLevel", doc.getString("adminLevel"));
+            user.put("profilePicture", doc.getString("profilePicture"));
+            user.put("role", doc.getString("role"));
             user.put("isActive", doc.getBoolean("isActive"));
             user.put("createdAt", doc.getTimestamp("createdAt"));
             users.add(user);
@@ -213,7 +216,21 @@ public class UserManagementServlet extends HttpServlet {
 
     private void handleGetUserProfile(HttpServletRequest request, HttpServletResponse response, Firestore db, String userId)
             throws IOException, ExecutionException, InterruptedException {
+        
+        // Try to get user by document ID first
         DocumentSnapshot document = db.collection("users").document(userId).get().get();
+        
+        // If not found by document ID, try to find by email (userId might be email)
+        if (!document.exists()) {
+            ApiFuture<QuerySnapshot> userQuery = db.collection("users")
+                    .whereEqualTo("email", userId)
+                    .get();
+            List<QueryDocumentSnapshot> userDocs = userQuery.get().getDocuments();
+            if (!userDocs.isEmpty()) {
+                document = userDocs.get(0);
+            }
+        }
+        
         if (!document.exists()) {
             response.setStatus(HttpServletResponse.SC_NOT_FOUND);
             Map<String, Object> error = Map.of("success", false, "message", "User not found");
@@ -221,8 +238,16 @@ public class UserManagementServlet extends HttpServlet {
             return;
         }
 
-        Map<String, Object> user = document.getData();
+        Map<String, Object> user = new HashMap<>(document.getData());
         user.put("id", document.getId());
+        
+        // Ensure all profile fields are included
+        if (!user.containsKey("birthDate")) user.put("birthDate", null);
+        if (!user.containsKey("profilePicture")) user.put("profilePicture", null);
+        if (!user.containsKey("year")) user.put("year", null);
+        if (!user.containsKey("type")) user.put("type", null);
+        if (!user.containsKey("adminLevel")) user.put("adminLevel", null);
+        
         Map<String, Object> responseData = Map.of("success", true, "data", user);
         objectMapper.writeValue(response.getWriter(), responseData);
     }

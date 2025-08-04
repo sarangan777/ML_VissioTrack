@@ -4,6 +4,8 @@ export interface User {
   email: string;
   role: string;
   department: string;
+  year?: string;
+  type?: string;
   profilePicture: string | null;
   birthDate?: string;
   registrationNumber?: string;

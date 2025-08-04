@@ -49,6 +49,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const normalizedRole = userData.role?.toLowerCase();
     userData.role = normalizedRole === 'admin' ? 'admin' : 'user';
 
+    console.log('🔐 [AuthContext] Logging in user with data:', userData);
+    console.log('📅 [AuthContext] Birth date in user data:', userData.birthDate);
+    
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('authToken', token);
     localStorage.setItem('role', userData.role);

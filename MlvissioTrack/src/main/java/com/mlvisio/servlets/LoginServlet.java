@@ -97,6 +97,9 @@ public class LoginServlet extends HttpServlet {
                     userData.put("name", userDoc.getString("name"));
                     userData.put("registrationNumber", userDoc.getString("registrationNumber"));
                     userData.put("department", userDoc.getString("department"));
+                    userData.put("birthDate", userDoc.getString("birthDate"));
+                    userData.put("year", userDoc.getString("year"));
+                    userData.put("type", userDoc.getString("type"));
                     userData.put("role", userDoc.contains("role") ? userDoc.getString("role") : "student");
                     userData.put("joinDate", userDoc.getTimestamp("createdAt"));
 

@@ -83,11 +83,47 @@ export const logout = async (): Promise<void> => {
 // ==================== PROFILE ====================
 
 export const getUserProfile = async (): Promise<ApiResponse<User>> => {
-  const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
-  return {
-    success: true,
-    data: currentUser,
-  };
+  try {
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    
+    // If we have a user ID or email, fetch fresh data from backend
+    if (currentUser.id || currentUser.email) {
+      const identifier = currentUser.id || currentUser.email;
+      const response = await fetch(`http://localhost:8080/MlvissioTrack/api/users/profile/${identifier}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          // Update localStorage with fresh data
+          const updatedUser = { ...currentUser, ...result.data };
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          return {
+            success: true,
+            data: updatedUser,
+          };
+        }
+      }
+    }
+    
+    // Fallback to localStorage data
+    return {
+      success: true,
+      data: currentUser,
+    };
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    const currentUser = JSON.parse(localStorage.getItem('user') || '{}');
+    return {
+      success: true,
+      data: currentUser,
+    };
+  }
 };
 
 export const updateUserProfile = async (
