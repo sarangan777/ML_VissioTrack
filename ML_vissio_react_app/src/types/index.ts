@@ -18,6 +18,7 @@ export interface DashboardStats {
   leave: number;
   totalHours: number;
   attendanceRate?: number;
+  absentToday?: number;
 }
 
 export interface ActivityItem {

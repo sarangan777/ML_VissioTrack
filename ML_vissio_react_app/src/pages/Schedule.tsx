@@ -62,7 +62,7 @@ const Schedule: React.FC = () => {
   const fetchScheduleData = async () => {
     try {
       setIsLoading(true);
-      const response = await apiService.getWeeklySchedule();
+      const response = await apiService.getWeeklySchedule(undefined, undefined, selectedDate);
       
       if (response.success && response.data) {
         setScheduleData(response.data);

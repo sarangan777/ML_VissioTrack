@@ -521,12 +521,14 @@ export const getTodaySchedule = async (): Promise<ApiResponse<any[]>> => {
 
 export const getWeeklySchedule = async (
   department?: string,
-  year?: string
+  year?: string,
+  date?: string
 ): Promise<ApiResponse<any>> => {
   try {
     const params = new URLSearchParams();
     if (department) params.append('department', department);
     if (year) params.append('year', year);
+    if (date) params.append('date', date);
 
     const response = await fetch(
       `http://localhost:8080/MlvissioTrack/api/schedule/week?${params}`,

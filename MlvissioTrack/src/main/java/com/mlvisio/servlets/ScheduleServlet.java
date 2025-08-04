@@ -199,12 +199,14 @@ public class ScheduleServlet extends HttpServlet {
         // Get current day of week
         String currentDay = LocalDate.now().getDayOfWeek()
                 .getDisplayName(TextStyle.FULL, Locale.ENGLISH);
+        String today = LocalDate.now().toString();
 
         System.out.println("📅 Fetching schedule for: " + currentDay);
 
         // Query schedules for today
         ApiFuture<QuerySnapshot> future = db.collection("schedules")
                 .whereEqualTo("dayOfWeek", currentDay)
+                .whereEqualTo("scheduleDate", today)
                 .whereEqualTo("isActive", true)
                 .get();
 
@@ -215,6 +217,7 @@ public class ScheduleServlet extends HttpServlet {
             Map<String, Object> schedule = new HashMap<>();
             schedule.put("id", doc.getId());
             schedule.put("subjectCode", doc.getString("subjectCode"));
+            schedule.put("scheduleDate", doc.getString("scheduleDate"));
             schedule.put("startTime", doc.getString("startTime"));
             schedule.put("endTime", doc.getString("endTime"));
             schedule.put("room", doc.getString("room"));
@@ -263,6 +266,7 @@ public class ScheduleServlet extends HttpServlet {
         
         String department = request.getParameter("department");
         String year = request.getParameter("year");
+        String scheduleDate = request.getParameter("date");
         
         Query query = db.collection("schedules").whereEqualTo("isActive", true);
         
@@ -272,6 +276,10 @@ public class ScheduleServlet extends HttpServlet {
         
         if (year != null && !year.isEmpty()) {
             query = query.whereEqualTo("year", year);
+        }
+        
+        if (scheduleDate != null && !scheduleDate.isEmpty()) {
+            query = query.whereEqualTo("scheduleDate", scheduleDate);
         }
         
         ApiFuture<QuerySnapshot> future = query.get();
@@ -290,6 +298,7 @@ public class ScheduleServlet extends HttpServlet {
                 Map<String, Object> schedule = new HashMap<>();
                 schedule.put("id", doc.getId());
                 schedule.put("subjectCode", doc.getString("subjectCode"));
+                schedule.put("scheduleDate", doc.getString("scheduleDate"));
                 schedule.put("startTime", doc.getString("startTime"));
                 schedule.put("endTime", doc.getString("endTime"));
                 schedule.put("room", doc.getString("room"));
@@ -383,13 +392,13 @@ public class ScheduleServlet extends HttpServlet {
         String endTime = (String) jsonRequest.get("endTime");
         String room = (String) jsonRequest.get("room");
         String lecturer = (String) jsonRequest.get("lecturer");
-        String date = (String) jsonRequest.get("date");
+        String scheduleDate = (String) jsonRequest.get("scheduleDate");
 
-        if (subjectCode == null || department == null || dayOfWeek == null || startTime == null || endTime == null || room == null) {
+        if (subjectCode == null || department == null || dayOfWeek == null || startTime == null || endTime == null || room == null || scheduleDate == null) {
             response.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
-            errorResponse.put("message", "Missing required fields: subject, department, day, startTime, endTime, room");
+            errorResponse.put("message", "Missing required fields: subject, department, day, startTime, endTime, room, scheduleDate");
             objectMapper.writeValue(response.getWriter(), errorResponse);
             return;
         }
@@ -408,11 +417,12 @@ public class ScheduleServlet extends HttpServlet {
             }
         }
 
-        String docId = subjectCode + "_" + dayOfWeek + "_" + startTime.replace(":", "");
+        String docId = subjectCode + "_" + scheduleDate + "_" + startTime.replace(":", "");
         
         Map<String, Object> scheduleData = new HashMap<>();
         scheduleData.put("subjectCode", subjectCode);
         scheduleData.put("dayOfWeek", dayOfWeek);
+        scheduleData.put("scheduleDate", scheduleDate);
         scheduleData.put("startTime", startTime);
         scheduleData.put("endTime", endTime);
         scheduleData.put("room", room);

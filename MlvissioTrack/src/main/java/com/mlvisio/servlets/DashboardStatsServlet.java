@@ -79,18 +79,26 @@ public class DashboardStatsServlet extends HttpServlet {
             
             // Count unique present students (avoid duplicates from multiple subjects)
             Set<String> uniquePresentStudents = new HashSet<>();
+            Set<String> uniqueAbsentStudents = new HashSet<>();
             int presentToday = 0;
+            int absentToday = 0;
+            
             for (QueryDocumentSnapshot doc : attendanceToday) {
                 String status = doc.getString("status");
-                String studentId = doc.getString("studentId");
-                if ("Present".equals(status) && studentId != null && !uniquePresentStudents.contains(studentId)) {
-                    uniquePresentStudents.add(studentId);
+                String registrationNumber = doc.getString("registrationNumber");
+                if ("Present".equals(status) && registrationNumber != null && !uniquePresentStudents.contains(registrationNumber)) {
+                    uniquePresentStudents.add(registrationNumber);
                     presentToday++;
+                } else if ("Absent".equals(status) && registrationNumber != null && !uniqueAbsentStudents.contains(registrationNumber)) {
+                    uniqueAbsentStudents.add(registrationNumber);
+                    absentToday++;
                 }
             }
             
             data.put("presentToday", presentToday);
+            data.put("absentToday", absentToday);
             System.out.println("📊 Present today: " + presentToday);
+            System.out.println("📊 Absent today: " + absentToday);
 
             // Calculate attendance rate
             double rate = totalStudents > 0 ? ((double) presentToday / totalStudents) * 100 : 0;
@@ -145,15 +153,17 @@ public class DashboardStatsServlet extends HttpServlet {
 
             // Get department-wise present count
             for (QueryDocumentSnapshot att : attendanceToday) {
-                String studentId = att.getString("studentId");
+                String registrationNumber = att.getString("registrationNumber");
                 String status = att.getString("status");
-                if (studentId != null && "Present".equals(status)) {
+                if (registrationNumber != null && "Present".equals(status)) {
                     // Find student's department
                     try {
-                        ApiFuture<DocumentSnapshot> studentDoc = db.collection("users")
-                                .document(studentId).get();
-                        DocumentSnapshot student = studentDoc.get();
-                        if (student.exists()) {
+                        ApiFuture<QuerySnapshot> studentQuery = db.collection("users")
+                                .whereEqualTo("registrationNumber", registrationNumber)
+                                .get();
+                        List<QueryDocumentSnapshot> studentDocs = studentQuery.get().getDocuments();
+                        if (!studentDocs.isEmpty()) {
+                            DocumentSnapshot student = studentDocs.get(0);
                             String dept = student.getString("department");
                             if (dept != null) {
                                 deptPresent.put(dept, deptPresent.getOrDefault(dept, 0) + 1);

@@ -65,12 +65,29 @@ const Dashboard: React.FC = () => {
         if (statsResponse.success && statsResponse.data) {
           // Map backend data to frontend structure
           const backendData = statsResponse.data;
+          
+          // Calculate student-specific attendance rate
+          let studentAttendanceRate = 0;
+          if (currentUser?.email) {
+            try {
+              const studentAttendanceResponse = await apiService.getStudentAttendance(currentUser.email);
+              if (studentAttendanceResponse.success && studentAttendanceResponse.data) {
+                const records = studentAttendanceResponse.data;
+                const totalRecords = records.length;
+                const presentRecords = records.filter((r: any) => r.status === 'Present').length;
+                studentAttendanceRate = totalRecords > 0 ? Math.round((presentRecords / totalRecords) * 100) : 0;
+              }
+            } catch (error) {
+              console.error('Error calculating student attendance rate:', error);
+            }
+          }
+          
           setStats({
-            present: backendData.presentToday || 0,
-            absent: (backendData.totalStudents || 0) - (backendData.presentToday || 0),
+            present: backendData.presentToday || 0, 
+            absent: backendData.absentToday || 0,
             leave: 0,
             totalHours: 0,
-            attendanceRate: backendData.attendanceRate || 0
+            attendanceRate: studentAttendanceRate || backendData.attendanceRate || 0
           });
           console.log('✅ Dashboard stats loaded:', statsResponse.data);
         } else {

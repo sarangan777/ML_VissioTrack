@@ -62,8 +62,8 @@ const AdminDashboard = () => {
           totalCourses: res.totalCourses
         });
 
-        const deptData = res.departmentAttendance;
-        const studyMode = res.studyModeCounts;
+        const deptData = res.departmentAttendance || [];
+        const studyMode = res.studyModeCounts || { fullTime: 0, partTime: 0 };
 
         // ✅ Department Chart
         const deptLabels = deptData.map((d: any) => d.department);
@@ -96,9 +96,51 @@ const AdminDashboard = () => {
         });
       } else {
         console.error('Failed to fetch dashboard stats:', statsResponse.message);
+        // Set default empty data if API fails
+        setDepartmentChart({
+          labels: [],
+          datasets: [{
+            label: 'Attendance Rate (%)',
+            data: [],
+            borderColor: 'rgb(75, 192, 192)',
+            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+            tension: 0.1
+          }]
+        });
+        setStudyModeChart({
+          labels: ['Full Time', 'Part Time'],
+          datasets: [{
+            data: [0, 0],
+            backgroundColor: [
+              'rgba(116, 148, 236, 0.8)',
+              'rgba(34, 197, 94, 0.8)'
+            ]
+          }]
+        });
       }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      // Set default empty data on error
+      setDepartmentChart({
+        labels: [],
+        datasets: [{
+          label: 'Attendance Rate (%)',
+          data: [],
+          borderColor: 'rgb(75, 192, 192)',
+          backgroundColor: 'rgba(75, 192, 192, 0.2)',
+          tension: 0.1
+        }]
+      });
+      setStudyModeChart({
+        labels: ['Full Time', 'Part Time'],
+        datasets: [{
+          data: [0, 0],
+          backgroundColor: [
+            'rgba(116, 148, 236, 0.8)',
+            'rgba(34, 197, 94, 0.8)'
+          ]
+        }]
+      });
     } finally {
       setIsLoading(false);
     }

@@ -23,6 +23,7 @@ interface ScheduleFormData {
   subject: string;
   department: string;
   day: string;
+  scheduleDate: string;
   startTime: string;
   endTime: string;
   room: string;
@@ -43,6 +44,7 @@ const AdminSchedule = () => {
     subject: '',
     department: '',
     day: '',
+    scheduleDate: new Date().toISOString().split('T')[0],
     startTime: '',
     endTime: '',
     room: '',
@@ -62,14 +64,14 @@ const AdminSchedule = () => {
 
   // Fetch subjects when filters change
   useEffect(() => {
-    if (selectedDepartment && selectedDepartment.trim() !== '') {
-      console.log('🔄 [AdminSchedule] Department changed, fetching subjects for:', selectedDepartment);
+    if (formData.department && formData.department.trim() !== '') {
+      console.log('🔄 [AdminSchedule] Department changed, fetching subjects for:', formData.department);
+      setSelectedDepartment(formData.department);
       fetchSubjects();
     } else {
       console.log('🔄 [AdminSchedule] No department selected, clearing subjects');
       setSubjects([]);
     }
-  }, [selectedDepartment]);
 
   const fetchData = async () => {
     try {
@@ -105,7 +107,7 @@ const AdminSchedule = () => {
   };
 
   const fetchSubjects = async () => {
-    if (!selectedDepartment || selectedDepartment.trim() === '') {
+    if (!formData.department || formData.department.trim() === '') {
       console.log('⚠️ [AdminSchedule] No department selected, skipping subject fetch');
       return;
     }
@@ -114,10 +116,10 @@ const AdminSchedule = () => {
     setSubjects([]); // Clear existing subjects
     
     try {
-      console.log('🔄 [AdminSchedule] Fetching subjects for department:', selectedDepartment);
+      console.log('🔄 [AdminSchedule] Fetching subjects for department:', formData.department);
       console.log('🔄 [AdminSchedule] API call starting...');
       
-      const response = await apiService.getSubjects(selectedDepartment);
+      const response = await apiService.getSubjects(formData.department);
       
       console.log('📡 [AdminSchedule] Full API response:', response);
       console.log('📡 [AdminSchedule] Response success:', response.success);
@@ -129,8 +131,8 @@ const AdminSchedule = () => {
         setSubjects(response.data);
         
         if (response.data.length === 0) {
-          console.log('⚠️ [AdminSchedule] No subjects found for department:', selectedDepartment);
-          toast.info(`No subjects found for department: ${selectedDepartment}`);
+          console.log('⚠️ [AdminSchedule] No subjects found for department:', formData.department);
+          toast.info(`No subjects found for department: ${formData.department}`);
         }
       } else {
         console.error('❌ [AdminSchedule] API returned error:', response.message);
@@ -181,7 +183,7 @@ const AdminSchedule = () => {
     e.preventDefault();
     
     if (!formData.subject || !formData.department || !formData.day || 
-        !formData.startTime || !formData.endTime || !formData.room) {
+        !formData.startTime || !formData.endTime || !formData.room || !formData.scheduleDate) {
       toast.error('Please fill in all required fields');
       return;
     }
@@ -219,6 +221,7 @@ const AdminSchedule = () => {
       subject: schedule.subjectCode,
       department: schedule.department,
       day: schedule.dayOfWeek,
+      scheduleDate: schedule.scheduleDate || new Date().toISOString().split('T')[0],
       startTime: schedule.startTime,
       endTime: schedule.endTime,
       room: schedule.room,
@@ -256,6 +259,7 @@ const AdminSchedule = () => {
       subject: '',
       department: '',
       day: '',
+      scheduleDate: new Date().toISOString().split('T')[0],
       startTime: '',
       endTime: '',
       room: '',
@@ -315,6 +319,7 @@ const AdminSchedule = () => {
                       className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm"
                     >
                       <div className="font-medium text-blue-800">{schedule.subjectCode}</div>
+                      <div className="text-blue-600 text-xs">{schedule.scheduleDate}</div>
                       <div className="text-blue-600 text-xs">
                         {schedule.startTime} - {schedule.endTime}
                       </div>
@@ -360,44 +365,54 @@ const AdminSchedule = () => {
             </Dialog.Title>
 
             {/* Dynamic Filters */}
-            <div className="mb-6 p-4 bg-blue-50 rounded-lg">
-              <h3 className="text-lg font-medium text-gray-800 mb-3">Schedule Filters</h3>
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Department *
-                  </label>
-                  <select
-                    value={selectedDepartment}
-                    onChange={(e) => {
-                      console.log('🔄 [AdminSchedule] Department selection changed to:', e.target.value);
-                      setSelectedDepartment(e.target.value);
-                      setFormData(prev => ({ ...prev, subject: '' })); // Clear selected subject when department changes
-                    }}
-                    className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                    required
-                  >
-                    <option value="">Select Department</option>
-                    {departments.map(dept => (
-                      <option key={dept} value={dept}>{dept}</option>
-                    ))}
-                  </select>
-                  {selectedDepartment && (
-                    <div className="text-xs text-gray-500 mt-1">
-                      Selected: {selectedDepartment}
-                    </div>
-                  )}
-                  {isLoadingSubjects && (
-                    <div className="text-xs text-blue-500 mt-1 flex items-center">
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500 mr-1"></div>
-                      Loading subjects for {selectedDepartment}...
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Schedule Date *
+                </label>
+                <input
+                  type="date"
+                  name="scheduleDate"
+                  value={formData.scheduleDate}
+                  onChange={handleInputChange}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Department *
+                </label>
+                <select
+                  name="department"
+                  value={formData.department}
+                  onChange={(e) => {
+                    console.log('🔄 [AdminSchedule] Department selection changed to:', e.target.value);
+                    setSelectedDepartment(e.target.value);
+                    setFormData(prev => ({ ...prev, department: e.target.value, subject: '' })); // Clear selected subject when department changes
+                  }}
+                  className="w-full p-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  required
+                >
+                  <option value="">Select Department</option>
+                  {departments.map(dept => (
+                    <option key={dept} value={dept}>{dept}</option>
+                  ))}
+                </select>
+                {formData.department && (
+                  <div className="text-xs text-gray-500 mt-1">
+                    Selected: {formData.department}
+                  </div>
+                )}
+                {isLoadingSubjects && (
+                  <div className="text-xs text-blue-500 mt-1 flex items-center">
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500 mr-1"></div>
+                    Loading subjects for {formData.department}...
+                  </div>
+                )}
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Subject Code
@@ -407,11 +422,11 @@ const AdminSchedule = () => {
                   value={formData.subject}
                   onChange={handleInputChange}
                   className="w-full p-2 border border-gray-300 rounded-lg"
-                  disabled={isLoadingSubjects || !selectedDepartment}
+                  disabled={isLoadingSubjects || !formData.department}
                   required
                 >
                   <option value="">
-                    {!selectedDepartment ? 'Select Department First' : 
+                    {!formData.department ? 'Select Department First' : 
                      isLoadingSubjects ? 'Loading subjects...' : 
                      subjects.length === 0 ? 'No subjects available' : 'Select Subject'}
                   </option>
@@ -421,35 +436,18 @@ const AdminSchedule = () => {
                     </option>
                   ))}
                 </select>
-                {selectedDepartment && subjects.length > 0 && (
+                {formData.department && subjects.length > 0 && (
                   <div className="text-xs text-gray-500 mt-1">
-                    ✅ {subjects.length} subjects available for {selectedDepartment}
+                    ✅ {subjects.length} subjects available for {formData.department}
                   </div>
                 )}
-                {selectedDepartment && !isLoadingSubjects && subjects.length === 0 && (
+                {formData.department && !isLoadingSubjects && subjects.length === 0 && (
                   <div className="text-xs text-red-500 mt-1">
-                    ⚠️ No subjects found for {selectedDepartment}
+                    ⚠️ No subjects found for {formData.department}
                   </div>
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Department
-                </label>
-                <select
-                  name="department"
-                  value={formData.department}
-                  onChange={handleInputChange}
-                  className="w-full p-2 border border-gray-300 rounded-lg"
-                  required
-                >
-                  <option value="">Select Department</option>
-                  {departments.map(dept => (
-                    <option key={dept} value={dept}>{dept}</option>
-                  ))}
-                </select>
-              </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">

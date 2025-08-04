@@ -169,16 +169,22 @@ public class SeedUsers {
     private static void seedSchedules(Map<String, String> lecturers) throws ExecutionException, InterruptedException {
         System.out.println("📅 Seeding Schedules...");
 
+        String today = java.time.LocalDate.now().toString();
+        String tomorrow = java.time.LocalDate.now().plusDays(1).toString();
+        
         Object[][] schedules = {
-                {"HNDIT401", "Monday", "09:00", "11:00", "Lab 01", "2nd Year", "Sri.Sethuparan"},
-                {"HNDIT402", "Tuesday", "11:00", "13:00", "Lab 02", "2nd Year", "Prof. Priya Jayawardena"},
-                {"HNDIT403", "Wednesday", "14:00", "16:00", "Lab 03", "2nd Year", "Mr. Sunil Bandara"}
+                {"HNDIT401", "Monday", "09:00", "11:00", "Lab 01", "2nd Year", "Sri.Sethuparan", today},
+                {"HNDIT402", "Tuesday", "11:00", "13:00", "Lab 02", "2nd Year", "Prof. Priya Jayawardena", today},
+                {"HNDIT403", "Wednesday", "14:00", "16:00", "Lab 03", "2nd Year", "Mr. Sunil Bandara", tomorrow},
+                {"HNDIT401", "Thursday", "10:00", "12:00", "Lab 01", "2nd Year", "Sri.Sethuparan", tomorrow},
+                {"HNDIT402", "Friday", "13:00", "15:00", "Lab 02", "2nd Year", "Prof. Priya Jayawardena", tomorrow}
         };
 
         for (Object[] s : schedules) {
             Map<String, Object> doc = new HashMap<>();
             doc.put("subjectCode", s[0]);
             doc.put("dayOfWeek", s[1]);
+            doc.put("scheduleDate", s[7]);
             doc.put("startTime", s[2]);
             doc.put("endTime", s[3]);
             doc.put("room", s[4]);
@@ -187,7 +193,7 @@ public class SeedUsers {
             doc.put("department", "HNDIT");
             doc.put("isActive", true);
 
-            String docId = s[0] + "_" + ((String) s[1]) + "_" + ((String) s[2]);
+            String docId = s[0] + "_" + ((String) s[7]) + "_" + ((String) s[2]).replace(":", "");
             db.collection("schedules").document(docId).set(doc).get();
             System.out.println("✅ Schedule: " + s[0]);
         }
