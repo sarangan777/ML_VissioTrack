@@ -384,7 +384,7 @@ export const getStudentAttendance = async (
   endDate?: string
 ): Promise<ApiResponse<any[]>> => {
   try {
-    console.log('🔄 [API] Fetching student attendance for:', email);
+    console.log('🔄 [API] Fetching student attendance for:', email, 'startDate:', startDate, 'endDate:', endDate);
     const params = new URLSearchParams();
     params.append('email', email);
     if (startDate) params.append('startDate', startDate);
@@ -405,7 +405,18 @@ export const getStudentAttendance = async (
     );
 
     console.log('📡 [API] Student attendance response status:', response.status);
-    console.log('📡 [API] Response headers:', Object.fromEntries(response.headers.entries()));
+    console.log('📡 [API] Response ok:', response.ok);
+    
+    if (!response.ok) {
+      console.error('❌ [API] Response not ok:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('❌ [API] Error response body:', errorText);
+      return {
+        success: false,
+        data: null,
+        message: `Server error: ${response.status} ${response.statusText}`,
+      };
+    }
     
     const result = await response.json();
     console.log('📡 [API] Student attendance response data:', result);

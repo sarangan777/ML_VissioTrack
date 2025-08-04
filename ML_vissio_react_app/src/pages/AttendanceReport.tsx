@@ -32,17 +32,11 @@ const AttendanceReport: React.FC = () => {
       
       try {
         console.log('🔄 [AttendanceReport] Starting fetch for user:', user.email);
-        console.log('🔄 [AttendanceReport] User object:', user);
+        console.log('🔄 [AttendanceReport] User role:', user.role);
         setIsLoading(true);
         
-        // Try both student attendance endpoint and general attendance report
+        // Use student attendance endpoint first
         let response = await apiService.getStudentAttendance(user.email);
-        
-        // If student attendance fails, try the general attendance report
-        if (!response.success) {
-          console.log('🔄 [AttendanceReport] Student attendance failed, trying general report...');
-          response = await apiService.getAttendanceReport(user.email);
-        }
         
         console.log('📡 [AttendanceReport] Full API Response:', response);
         
@@ -68,8 +62,8 @@ const AttendanceReport: React.FC = () => {
           setAttendanceData(formattedData);
           
           if (formattedData.length === 0) {
-            console.log('⚠️ [AttendanceReport] No attendance records found for user');
-            toast.info('No attendance records found. This might be because no attendance has been marked yet.');
+            console.log('⚠️ [AttendanceReport] No attendance records found for user:', user.email);
+            toast.info('No attendance records found for this student.');
           }
         } else {
           console.error('❌ [AttendanceReport] API returned error:', response.message);

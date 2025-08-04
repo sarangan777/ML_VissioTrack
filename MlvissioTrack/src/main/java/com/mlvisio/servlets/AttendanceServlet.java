@@ -156,40 +156,15 @@ public class AttendanceServlet extends HttpServlet {
         }
 
         try {
-            // First, let's check if we have any attendance records at all
-            ApiFuture<QuerySnapshot> allAttendanceQuery = db.collection("attendance").limit(5).get();
-            List<QueryDocumentSnapshot> allAttendanceDocs = allAttendanceQuery.get().getDocuments();
-            System.out.println("📊 [AttendanceServlet] Total attendance records in database: " + allAttendanceDocs.size());
-            
-            if (!allAttendanceDocs.isEmpty()) {
-                System.out.println("📊 [AttendanceServlet] Sample attendance record structure:");
-                QueryDocumentSnapshot sampleDoc = allAttendanceDocs.get(0);
-                System.out.println("📊 [AttendanceServlet] Sample doc ID: " + sampleDoc.getId());
-                System.out.println("📊 [AttendanceServlet] Sample doc data: " + sampleDoc.getData());
-            }
-            
             // Step 1: Get student info first to get registration number
             ApiFuture<QuerySnapshot> userQuery = db.collection("users")
                     .whereEqualTo("email", studentEmail)
-                    .whereEqualTo("role", "student")
                     .get();
             
             List<QueryDocumentSnapshot> userDocs = userQuery.get().getDocuments();
             System.out.println("📊 [AttendanceServlet] Found " + userDocs.size() + " users with email: " + studentEmail);
             
             if (userDocs.isEmpty()) {
-                // Let's also check without role filter
-                ApiFuture<QuerySnapshot> userQueryNoRole = db.collection("users")
-                        .whereEqualTo("email", studentEmail)
-                        .get();
-                List<QueryDocumentSnapshot> userDocsNoRole = userQueryNoRole.get().getDocuments();
-                System.out.println("📊 [AttendanceServlet] Found " + userDocsNoRole.size() + " users with email (no role filter): " + studentEmail);
-                
-                if (!userDocsNoRole.isEmpty()) {
-                    QueryDocumentSnapshot userDoc = userDocsNoRole.get(0);
-                    System.out.println("📊 [AttendanceServlet] User found but role mismatch. User role: " + userDoc.getString("role"));
-                }
-                
                 System.out.println("❌ [AttendanceServlet] Student not found: " + studentEmail);
                 response.setStatus(HttpServletResponse.SC_NOT_FOUND);
                 Map<String, Object> errorResponse = new HashMap<>();
@@ -202,54 +177,14 @@ public class AttendanceServlet extends HttpServlet {
             String registrationNumber = userDocs.get(0).getString("registrationNumber");
             String vertexLabel = userDocs.get(0).getString("vertexLabel");
             System.out.println("📊 [AttendanceServlet] Found student with registration number: " + registrationNumber);
-            System.out.println("📊 [AttendanceServlet] Vertex label: " + vertexLabel);
             
-            // Step 2: Try multiple query approaches to find attendance records
-            List<QueryDocumentSnapshot> attendanceDocs = new ArrayList<>();
+            // Step 2: Get attendance records - REMOVE ORDERING TO AVOID INDEX REQUIREMENT
+            ApiFuture<QuerySnapshot> attendanceQuery = db.collection("attendance")
+                    .whereEqualTo("registrationNumber", registrationNumber)
+                    .get(); // Remove .orderBy to avoid composite index requirement
             
-            // Try querying by registrationNumber first
-            if (registrationNumber != null) {
-                ApiFuture<QuerySnapshot> regQuery = db.collection("attendance")
-                        .whereEqualTo("registrationNumber", registrationNumber)
-                        .get();
-                attendanceDocs = regQuery.get().getDocuments();
-                System.out.println("📊 [AttendanceServlet] Found " + attendanceDocs.size() + " records by registrationNumber");
-                
-                // If no records found, let's try a broader search
-                if (attendanceDocs.isEmpty()) {
-                    System.out.println("📊 [AttendanceServlet] No records found by registrationNumber, trying broader search...");
-                    
-                    // Check if there are any records with similar registration numbers
-                    ApiFuture<QuerySnapshot> allRegsQuery = db.collection("attendance").get();
-                    List<QueryDocumentSnapshot> allRegsDocs = allRegsQuery.get().getDocuments();
-                    System.out.println("📊 [AttendanceServlet] Checking all " + allRegsDocs.size() + " attendance records for similar registration numbers:");
-                    
-                    for (QueryDocumentSnapshot doc : allRegsDocs) {
-                        String docRegNum = doc.getString("registrationNumber");
-                        String docVertexLabel = doc.getString("vertexLabel");
-                        System.out.println("📊 [AttendanceServlet] Found record with regNum: '" + docRegNum + "', vertexLabel: '" + docVertexLabel + "'");
-                        
-                        // Try exact match or contains match
-                        if (registrationNumber.equals(docRegNum) || 
-                            (docRegNum != null && docRegNum.contains(registrationNumber)) ||
-                            (registrationNumber.contains(docRegNum))) {
-                            attendanceDocs.add(doc);
-                            System.out.println("📊 [AttendanceServlet] Added matching record: " + doc.getId());
-                        }
-                    }
-                    
-                    System.out.println("📊 [AttendanceServlet] After broader search: " + attendanceDocs.size() + " records found");
-                }
-            }
-            
-            // If no records found, try by vertexLabel
-            if (attendanceDocs.isEmpty() && vertexLabel != null) {
-                ApiFuture<QuerySnapshot> vertexQuery = db.collection("attendance")
-                        .whereEqualTo("vertexLabel", vertexLabel)
-                        .get();
-                attendanceDocs = vertexQuery.get().getDocuments();
-                System.out.println("📊 [AttendanceServlet] Found " + attendanceDocs.size() + " records by vertexLabel");
-            }
+            List<QueryDocumentSnapshot> attendanceDocs = attendanceQuery.get().getDocuments();
+            System.out.println("📊 [AttendanceServlet] Found " + attendanceDocs.size() + " attendance records");
             
             // Step 3: Apply date filters if provided and records exist
             List<QueryDocumentSnapshot> filteredDocs = new ArrayList<>();
@@ -274,7 +209,7 @@ public class AttendanceServlet extends HttpServlet {
                 }
             }
             
-            // Sort by date descending
+            // Sort by date descending (in memory, not in query)
             filteredDocs.sort((a, b) -> {
                 String dateA = a.getString("date");
                 String dateB = b.getString("date");
@@ -360,13 +295,21 @@ public class AttendanceServlet extends HttpServlet {
 
         String registrationNumber = userDocs.get(0).getString("registrationNumber");
         
-        // Get attendance records for this student, ordered by date descending
+        // Get attendance records for this student (no ordering to avoid index requirement)
         ApiFuture<QuerySnapshot> attendanceQuery = db.collection("attendance")
                 .whereEqualTo("registrationNumber", registrationNumber)
-                .orderBy("date", Query.Direction.DESCENDING)
                 .get();
         
         List<QueryDocumentSnapshot> attendanceDocs = attendanceQuery.get().getDocuments();
+        
+        // Sort by date descending (in memory)
+        attendanceDocs.sort((a, b) -> {
+            String dateA = a.getString("date");
+            String dateB = b.getString("date");
+            if (dateA == null) dateA = "";
+            if (dateB == null) dateB = "";
+            return dateB.compareTo(dateA); // Descending order
+        });
         
         // Calculate streak
         int streak = 0;
@@ -417,7 +360,8 @@ public class AttendanceServlet extends HttpServlet {
         System.out.println("📊 [AttendanceServlet] Generating attendance report - Email: " + studentEmail + ", Department: " + department);
         
         try {
-            Query query = db.collection("attendance");
+            // Remove complex queries that require indexes
+            ApiFuture<QuerySnapshot> attendanceQuery;
             
             // If specific student email is provided, filter by registration number
             if (studentEmail != null && !studentEmail.isEmpty()) {
@@ -429,27 +373,64 @@ public class AttendanceServlet extends HttpServlet {
                 List<QueryDocumentSnapshot> userDocs = userQuery.get().getDocuments();
                 if (!userDocs.isEmpty()) {
                     String registrationNumber = userDocs.get(0).getString("registrationNumber");
-                    query = query.whereEqualTo("registrationNumber", registrationNumber);
+                    attendanceQuery = db.collection("attendance")
+                            .whereEqualTo("registrationNumber", registrationNumber)
+                            .get();
                     System.out.println("📊 [AttendanceServlet] Filtering by registration number: " + registrationNumber);
+                } else {
+                    System.out.println("❌ [AttendanceServlet] Student not found: " + studentEmail);
+                    response.setStatus(HttpServletResponse.SC_NOT_FOUND);
+                    Map<String, Object> errorResponse = new HashMap<>();
+                    errorResponse.put("success", false);
+                    errorResponse.put("message", "Student not found");
+                    objectMapper.writeValue(response.getWriter(), errorResponse);
+                    return;
+                }
+            } else {
+                // Get all attendance records
+                attendanceQuery = db.collection("attendance").get();
+            }
+            
+            List<QueryDocumentSnapshot> documents = attendanceQuery.get().getDocuments();
+            System.out.println("📊 [AttendanceServlet] Found " + documents.size() + " total attendance records");
+            
+            // Apply date filters manually (in memory)
+            List<QueryDocumentSnapshot> filteredDocs = new ArrayList<>();
+            for (QueryDocumentSnapshot doc : documents) {
+                String recordDate = doc.getString("date");
+                boolean includeRecord = true;
+                
+                if (startDate != null && !startDate.isEmpty() && recordDate != null) {
+                    if (recordDate.compareTo(startDate) < 0) {
+                        includeRecord = false;
+                    }
+                }
+                
+                if (endDate != null && !endDate.isEmpty() && recordDate != null) {
+                    if (recordDate.compareTo(endDate) > 0) {
+                        includeRecord = false;
+                    }
+                }
+                
+                if (includeRecord) {
+                    filteredDocs.add(doc);
                 }
             }
             
-            // Add date filters
-            if (startDate != null && !startDate.isEmpty()) {
-                query = query.whereGreaterThanOrEqualTo("date", startDate);
-            }
-            if (endDate != null && !endDate.isEmpty()) {
-                query = query.whereLessThanOrEqualTo("date", endDate);
-            }
-            
-            ApiFuture<QuerySnapshot> future = query.orderBy("date", Query.Direction.DESCENDING).get();
-            List<QueryDocumentSnapshot> documents = future.get().getDocuments();
+            // Sort by date descending (in memory)
+            filteredDocs.sort((a, b) -> {
+                String dateA = a.getString("date");
+                String dateB = b.getString("date");
+                if (dateA == null) dateA = "";
+                if (dateB == null) dateB = "";
+                return dateB.compareTo(dateA); // Descending order
+            });
             
             List<Map<String, Object>> attendanceRecords = new ArrayList<>();
             
-            System.out.println("📊 [AttendanceServlet] Processing " + documents.size() + " attendance records");
+            System.out.println("📊 [AttendanceServlet] Processing " + filteredDocs.size() + " filtered attendance records");
             
-            for (QueryDocumentSnapshot doc : documents) {
+            for (QueryDocumentSnapshot doc : filteredDocs) {
                 String registrationNumber = doc.getString("registrationNumber");
                 
                 // Get student details using registration number
