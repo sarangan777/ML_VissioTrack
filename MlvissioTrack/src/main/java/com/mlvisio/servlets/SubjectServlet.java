@@ -88,61 +88,71 @@ public class SubjectServlet extends HttpServlet {
         
         List<Map<String, Object>> subjects = new ArrayList<>();
         
-        // Navigate through the hierarchical structure: courses/{department}/semesters/{semester}/subjects
-        ApiFuture<QuerySnapshot> semestersFuture = db.collection("courses")
-                .document(department)
-                .collection("semesters")
-                .get();
-        
-        List<QueryDocumentSnapshot> semesters = semestersFuture.get().getDocuments();
-        
-        for (QueryDocumentSnapshot semesterDoc : semesters) {
-            String semesterName = semesterDoc.getId();
-            
-            ApiFuture<QuerySnapshot> subjectsFuture = db.collection("courses")
+        try {
+            // Navigate through the hierarchical structure: courses/{department}/semesters/{semester}/subjects
+            ApiFuture<QuerySnapshot> semestersFuture = db.collection("courses")
                     .document(department)
                     .collection("semesters")
-                    .document(semesterName)
-                    .collection("subjects")
                     .get();
             
-            List<QueryDocumentSnapshot> subjectDocs = subjectsFuture.get().getDocuments();
+            List<QueryDocumentSnapshot> semesters = semestersFuture.get().getDocuments();
+            System.out.println("📚 Found " + semesters.size() + " semesters for department: " + department);
             
-            for (QueryDocumentSnapshot subjectDoc : subjectDocs) {
-                Map<String, Object> subject = new HashMap<>();
-                subject.put("id", subjectDoc.getId());
-                subject.put("courseCode", subjectDoc.getString("courseCode"));
-                subject.put("courseName", subjectDoc.getString("courseName"));
-                subject.put("semester", subjectDoc.getString("semester"));
-                subject.put("credits", subjectDoc.getLong("credits"));
-                subject.put("department", department);
-                subject.put("isActive", subjectDoc.getBoolean("isActive"));
+            for (QueryDocumentSnapshot semesterDoc : semesters) {
+                String semesterName = semesterDoc.getId();
+                System.out.println("📚 Processing semester: " + semesterName);
                 
-                // Get lecturer information
-                String lecturerId = subjectDoc.getString("lecturerId");
-                subject.put("lecturerId", lecturerId);
+                ApiFuture<QuerySnapshot> subjectsFuture = db.collection("courses")
+                        .document(department)
+                        .collection("semesters")
+                        .document(semesterName)
+                        .collection("subjects")
+                        .get();
                 
-                if (lecturerId != null) {
-                    try {
-                        ApiFuture<DocumentSnapshot> lecturerFuture = db.collection("lecturers")
-                                .document(lecturerId).get();
-                        DocumentSnapshot lecturerDoc = lecturerFuture.get();
-                        if (lecturerDoc.exists()) {
-                            subject.put("lecturerName", lecturerDoc.getString("name"));
-                            subject.put("lecturerEmail", lecturerDoc.getString("email"));
-                        } else {
+                List<QueryDocumentSnapshot> subjectDocs = subjectsFuture.get().getDocuments();
+                System.out.println("📚 Found " + subjectDocs.size() + " subjects in semester: " + semesterName);
+                
+                for (QueryDocumentSnapshot subjectDoc : subjectDocs) {
+                    Map<String, Object> subject = new HashMap<>();
+                    subject.put("id", subjectDoc.getId());
+                    subject.put("courseCode", subjectDoc.getString("courseCode"));
+                    subject.put("courseName", subjectDoc.getString("courseName"));
+                    subject.put("semester", subjectDoc.getString("semester"));
+                    subject.put("credits", subjectDoc.getLong("credits"));
+                    subject.put("department", department);
+                    subject.put("isActive", subjectDoc.getBoolean("isActive"));
+                    
+                    // Get lecturer information
+                    String lecturerId = subjectDoc.getString("lecturerId");
+                    subject.put("lecturerId", lecturerId);
+                    
+                    if (lecturerId != null) {
+                        try {
+                            ApiFuture<DocumentSnapshot> lecturerFuture = db.collection("lecturers")
+                                    .document(lecturerId).get();
+                            DocumentSnapshot lecturerDoc = lecturerFuture.get();
+                            if (lecturerDoc.exists()) {
+                                subject.put("lecturerName", lecturerDoc.getString("name"));
+                                subject.put("lecturerEmail", lecturerDoc.getString("email"));
+                                System.out.println("📚 Subject: " + subjectDoc.getString("courseCode") + " - Lecturer: " + lecturerDoc.getString("name"));
+                            } else {
+                                subject.put("lecturerName", "Unknown Lecturer");
+                                System.out.println("⚠️ Lecturer not found for ID: " + lecturerId);
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Error fetching lecturer info: " + e.getMessage());
                             subject.put("lecturerName", "Unknown Lecturer");
                         }
-                    } catch (Exception e) {
-                        System.err.println("Error fetching lecturer info: " + e.getMessage());
-                        subject.put("lecturerName", "Unknown Lecturer");
+                    } else {
+                        subject.put("lecturerName", "No Lecturer Assigned");
                     }
-                } else {
-                    subject.put("lecturerName", "No Lecturer Assigned");
+                    
+                    subjects.add(subject);
                 }
-                
-                subjects.add(subject);
             }
+        } catch (Exception e) {
+            System.err.println("❌ Error fetching subjects for department " + department + ": " + e.getMessage());
+            e.printStackTrace();
         }
         
         return subjects;
